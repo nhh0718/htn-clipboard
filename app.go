@@ -13,16 +13,10 @@ import (
 	"clipboard-pro/internal/server"
 	"clipboard-pro/internal/storage"
 
-	"github.com/getlantern/systray"
-	"github.com/pkg/browser"
-	hook "github.com/robotn/gohook"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"gorm.io/gorm"
 	goclip "golang.design/x/clipboard"
 )
-
-//go:embed build/windows/icon.ico
-var trayIconData []byte
 
 // App is the Wails application struct. All exported methods are bound to the
 // frontend and callable from JavaScript via the Wails bridge.
@@ -86,10 +80,10 @@ func (a *App) startup(ctx context.Context) {
 	a.cleanupCancel = cleanupCancel
 	go a.runCleanup(cleanupCtx, cfg.RetentionDays, cfg.MaxItems)
 
-	// --- System tray ---
-	go systray.Run(a.onTrayReady, a.onTrayExit)
+	// --- System tray (Windows only, no-op on other platforms) ---
+	a.startTray()
 
-	// --- Global hotkey (Ctrl+Shift+V) ---
+	// --- Global hotkey (Windows only, no-op on other platforms) ---
 	go a.registerHotkey()
 }
 
@@ -110,47 +104,9 @@ func (a *App) shutdown(ctx context.Context) {
 			_ = sqlDB.Close()
 		}
 	}
-	systray.Quit()
+	a.stopTray()
 }
 
-// onTrayReady sets up the system tray icon and menu.
-func (a *App) onTrayReady() {
-	systray.SetIcon(trayIconData)
-	systray.SetTitle("Clipboard Pro")
-	systray.SetTooltip("Clipboard Pro — Running")
-
-	mShow := systray.AddMenuItem("Show Window", "Show the Clipboard Pro app window")
-	mDashboard := systray.AddMenuItem("Open Dashboard", "Open web dashboard in browser")
-	systray.AddSeparator()
-	mQuit := systray.AddMenuItem("Quit", "Quit Clipboard Pro")
-
-	go func() {
-		for {
-			select {
-			case <-mShow.ClickedCh:
-				runtime.WindowShow(a.ctx)
-			case <-mDashboard.ClickedCh:
-				// Open the same React frontend in the default browser
-				_ = browser.OpenURL(fmt.Sprintf("http://localhost:%d", a.config.Port))
-			case <-mQuit.ClickedCh:
-				runtime.Quit(a.ctx)
-				return
-			}
-		}
-	}()
-}
-
-// onTrayExit is called when the systray is quitting.
-func (a *App) onTrayExit() {}
-
-// registerHotkey listens for Ctrl+Shift+V and toggles window visibility.
-func (a *App) registerHotkey() {
-	hook.Register(hook.KeyDown, []string{"ctrl", "shift", "v"}, func(e hook.Event) {
-		runtime.WindowShow(a.ctx)
-	})
-	s := hook.Start()
-	<-hook.Process(s)
-}
 
 // runCleanup periodically deletes old items and enforces the maxItems cap.
 // Exits when ctx is cancelled (called from shutdown).
