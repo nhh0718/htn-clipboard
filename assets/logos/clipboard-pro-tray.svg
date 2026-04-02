@@ -1,25 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
   <defs>
-    <linearGradient id="b" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#6aa6ff"/>
-      <stop offset="100%" stop-color="#4f8ff7"/>
+    <linearGradient id="b" x1="10" y1="6" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6db3ff"/>
+      <stop offset="100%" stop-color="#3a6fd8"/>
     </linearGradient>
   </defs>
-  <!-- Simplified clipboard silhouette for tray/small sizes -->
+  <!-- Optimized for 16-64px: high contrast, simple shapes -->
   <!-- Back layer -->
-  <rect x="24" y="14" width="28" height="38" rx="4" fill="#4f8ff7" opacity="0.3"/>
+  <rect x="26" y="16" width="24" height="34" rx="4" fill="#4f8ff7" opacity="0.25"/>
   <!-- Front clipboard -->
-  <rect x="14" y="10" width="28" height="42" rx="5" fill="url(#b)"/>
+  <rect x="14" y="10" width="28" height="40" rx="5" fill="url(#b)"/>
   <!-- Clip -->
-  <rect x="22" y="5" width="12" height="10" rx="3" fill="url(#b)" stroke="#fff" stroke-width="2"/>
-  <!-- Lines -->
-  <rect x="20" y="26" width="16" height="3" rx="1.5" fill="#fff" opacity="0.9"/>
-  <rect x="20" y="33" width="12" height="2" rx="1" fill="#fff" opacity="0.5"/>
-  <rect x="20" y="39" width="14" height="2" rx="1" fill="#fff" opacity="0.4"/>
-  <!-- Copy indicator -->
+  <rect x="22" y="5" width="12" height="10" rx="3" fill="#6db3ff" stroke="#fff" stroke-width="1.5"/>
+  <rect x="25" y="8" width="6" height="4" rx="1.5" fill="#1a2238"/>
+  <!-- Title line -->
+  <rect x="20" y="24" width="16" height="3" rx="1.5" fill="#fff" opacity="0.95"/>
+  <!-- Body lines -->
+  <rect x="20" y="31" width="12" height="2" rx="1" fill="#fff" opacity="0.45"/>
+  <rect x="20" y="36" width="14" height="2" rx="1" fill="#fff" opacity="0.35"/>
+  <!-- Copy badge -->
   <g transform="translate(38, 38)">
-    <rect x="0" y="4" width="14" height="14" rx="3" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.5"/>
-    <rect x="4" y="0" width="14" height="14" rx="3" fill="#fff" opacity="0.9"/>
-    <path d="M8 4.5 v5 M5.5 7 h5" stroke="#4f8ff7" stroke-width="1.8" stroke-linecap="round"/>
+    <rect x="0" y="4" width="13" height="13" rx="3" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.45"/>
+    <rect x="4" y="0" width="13" height="13" rx="3" fill="#fff" opacity="0.95"/>
+    <path d="M8 3.5 v6 M5 6.5 h6" stroke="#4f8ff7" stroke-width="2" stroke-linecap="round"/>
   </g>
 </svg>

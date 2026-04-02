@@ -1,7 +1,61 @@
-build/
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Wails build output
+build/bin/
+
+# Frontend build
 frontend/dist/
 frontend/node_modules/
+
+# Node
 node_modules/
+package-lock.json
+
+# Database
 *.db
+*.db-shm
+*.db-wal
 data/
+
+# Environment
 .env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Temp & generated
+artifacts/
+*.tmp
+*.log
+frontend/vite.config.ts.timestamp-*
+
+# Dev utility files (not part of app)
+images_list.txt
+images_list_utf8.txt
+process_logos.js
+
+# Claude Code (local dev config)
+.claude/
+
+# Plans & reports (dev only)
+plans/

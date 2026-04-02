@@ -1,45 +1,48 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <linearGradient id="bgGrad" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#1e2330"/>
-      <stop offset="100%" stop-color="#181b23"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1c2540"/>
+      <stop offset="100%" stop-color="#101828"/>
     </linearGradient>
-    <linearGradient id="blueGrad" x1="160" y1="120" x2="380" y2="420" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#6aa6ff"/>
-      <stop offset="100%" stop-color="#4f8ff7"/>
+    <linearGradient id="blue" x1="100" y1="100" x2="400" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
     </linearGradient>
-    <linearGradient id="cardGrad" x1="140" y1="200" x2="380" y2="440" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
-      <stop offset="100%" stop-color="#e8edf5" stop-opacity="0.9"/>
-    </linearGradient>
+    <filter id="sh">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.4"/>
+    </filter>
   </defs>
 
-  <!-- Background rounded square -->
-  <rect width="512" height="512" rx="108" fill="url(#bgGrad)"/>
+  <!-- Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
 
-  <!-- Back card (history layer 2) — offset right+down, faded -->
-  <rect x="190" y="148" width="210" height="260" rx="18" fill="#2a3040" stroke="#3a4258" stroke-width="2"/>
+  <!-- Back card — slightly offset, semi-transparent -->
+  <rect x="168" y="118" width="220" height="290" rx="28" fill="#3b82f6" opacity="0.2" transform="rotate(4, 278, 263)"/>
 
-  <!-- Middle card (history layer 1) — offset slightly -->
-  <rect x="165" y="132" width="210" height="260" rx="18" fill="#323a50" stroke="#4a5270" stroke-width="2"/>
+  <!-- Front card — main, white, with shadow -->
+  <rect x="124" y="100" width="220" height="290" rx="28" fill="#f8fafc" filter="url(#sh)"/>
 
-  <!-- Front clipboard board -->
-  <rect x="136" y="116" width="210" height="280" rx="20" fill="url(#cardGrad)"/>
+  <!-- Clipboard clip — bold blue pill shape -->
+  <rect x="186" y="72" width="96" height="56" rx="20" fill="url(#blue)" filter="url(#sh)"/>
+  <rect x="206" y="90" width="56" height="24" rx="10" fill="#101828"/>
 
-  <!-- Clipboard clip at top -->
-  <rect x="200" y="92" width="82" height="48" rx="12" fill="url(#blueGrad)"/>
-  <rect x="214" y="108" width="54" height="24" rx="8" fill="#181b23"/>
+  <!-- Two bold content blocks (not thin lines — visible at small sizes) -->
+  <rect x="158" y="184" width="140" height="18" rx="9" fill="url(#blue)"/>
+  <rect x="158" y="222" width="110" height="14" rx="7" fill="#94a3b8" opacity="0.45"/>
+  <rect x="158" y="250" width="152" height="14" rx="7" fill="#94a3b8" opacity="0.3"/>
 
-  <!-- Content lines on clipboard -->
-  <rect x="168" y="176" width="120" height="10" rx="5" fill="url(#blueGrad)" opacity="0.85"/>
-  <rect x="168" y="204" width="146" height="8" rx="4" fill="#b0bbd0" opacity="0.5"/>
-  <rect x="168" y="226" width="130" height="8" rx="4" fill="#b0bbd0" opacity="0.4"/>
-  <rect x="168" y="248" width="100" height="8" rx="4" fill="#b0bbd0" opacity="0.3"/>
+  <!-- Divider -->
+  <rect x="158" y="286" width="152" height="2" rx="1" fill="#94a3b8" opacity="0.15"/>
 
-  <!-- Copy/duplicate indicator — small overlapping squares bottom-right -->
-  <g transform="translate(308, 310)">
-    <rect x="0" y="12" width="52" height="52" rx="10" fill="none" stroke="url(#blueGrad)" stroke-width="4" opacity="0.6"/>
-    <rect x="12" y="0" width="52" height="52" rx="10" fill="url(#blueGrad)" opacity="0.9"/>
-    <path d="M28 18 v16 M20 26 h16" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/>
+  <!-- Second block -->
+  <rect x="158" y="306" width="100" height="14" rx="7" fill="#60a5fa" opacity="0.45"/>
+  <rect x="158" y="332" width="130" height="12" rx="6" fill="#94a3b8" opacity="0.2"/>
+
+  <!-- Copy badge — bottom right, large and clear -->
+  <g transform="translate(310, 310)">
+    <rect x="0" y="16" width="60" height="60" rx="16" fill="#1e293b" stroke="#3b82f6" stroke-width="3"/>
+    <rect x="16" y="0" width="60" height="60" rx="16" fill="url(#blue)"/>
+    <!-- Checkmark instead of plus — represents "copied" -->
+    <path d="M30 22 L40 32 L54 18" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </g>
 </svg>

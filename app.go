@@ -21,6 +21,9 @@ import (
 	goclip "golang.design/x/clipboard"
 )
 
+//go:embed build/windows/icon.ico
+var trayIconData []byte
+
 // App is the Wails application struct. All exported methods are bound to the
 // frontend and callable from JavaScript via the Wails bridge.
 type App struct {
@@ -112,6 +115,7 @@ func (a *App) shutdown(ctx context.Context) {
 
 // onTrayReady sets up the system tray icon and menu.
 func (a *App) onTrayReady() {
+	systray.SetIcon(trayIconData)
 	systray.SetTitle("Clipboard Pro")
 	systray.SetTooltip("Clipboard Pro — Running")
 
