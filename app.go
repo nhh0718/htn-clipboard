@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"clipboard-pro/internal/autostart"
 	"clipboard-pro/internal/clipboard"
 	"clipboard-pro/internal/config"
 	"clipboard-pro/internal/server"
@@ -28,6 +29,7 @@ type App struct {
 	monitor       *clipboard.Monitor
 	server        *server.Server
 	cleanupCancel context.CancelFunc
+	startedAt     time.Time
 }
 
 // NewApp creates the App instance for Wails.
@@ -38,6 +40,7 @@ func NewApp() *App {
 // startup is called by Wails after the window is ready.
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+	a.startedAt = time.Now()
 
 	// --- Config ---
 	cfg, err := config.Load()
@@ -46,6 +49,9 @@ func (a *App) startup(ctx context.Context) {
 		return // cannot proceed without config
 	}
 	a.config = cfg
+
+	// --- Autostart: sync registry with config ---
+	syncAutoStart(cfg.AutoStart)
 
 	// --- Database ---
 	db, err := storage.InitDB(cfg.DataDir)
@@ -99,9 +105,10 @@ func (a *App) shutdown(ctx context.Context) {
 // onTrayReady sets up the system tray icon and menu.
 func (a *App) onTrayReady() {
 	systray.SetTitle("Clipboard Pro")
-	systray.SetTooltip("Clipboard Pro")
+	systray.SetTooltip("Clipboard Pro — Running")
 
-	mShow := systray.AddMenuItem("Show", "Show the Clipboard Pro window")
+	mShow := systray.AddMenuItem("Open Dashboard", "Open the Clipboard Pro window")
+	mHealth := systray.AddMenuItem("Health Check", "Show system health status")
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Quit", "Quit Clipboard Pro")
 
@@ -110,6 +117,10 @@ func (a *App) onTrayReady() {
 			select {
 			case <-mShow.ClickedCh:
 				runtime.WindowShow(a.ctx)
+			case <-mHealth.ClickedCh:
+				runtime.WindowShow(a.ctx)
+				// Emit health event so frontend can show it
+				runtime.EventsEmit(a.ctx, "health:check")
 			case <-mQuit.ClickedCh:
 				runtime.Quit(a.ctx)
 				return
@@ -148,6 +159,19 @@ func (a *App) runCleanup(ctx context.Context, retentionDays, maxItems int) {
 					fmt.Println("[app] prune error:", err)
 				}
 			}
+		}
+	}
+}
+
+// syncAutoStart sets or removes the Windows startup registry entry.
+func syncAutoStart(enabled bool) {
+	if enabled {
+		if err := autostart.Enable(); err != nil {
+			fmt.Println("[app] autostart enable error:", err)
+		}
+	} else {
+		if err := autostart.Disable(); err != nil {
+			fmt.Println("[app] autostart disable error:", err)
 		}
 	}
 }
@@ -226,7 +250,40 @@ func (a *App) GetConfig() *config.Config {
 }
 
 // SaveConfig persists updated configuration to disk.
+// Also syncs autostart registry entry when the setting changes.
 func (a *App) SaveConfig(cfg config.Config) error {
+	oldAutoStart := a.config.AutoStart
 	a.config = &cfg
-	return config.Save(&cfg)
+	if err := config.Save(&cfg); err != nil {
+		return err
+	}
+	// Sync autostart if the setting changed
+	if cfg.AutoStart != oldAutoStart {
+		syncAutoStart(cfg.AutoStart)
+	}
+	return nil
+}
+
+// HealthCheck returns system health info for the frontend.
+type HealthStatus struct {
+	Status    string `json:"status"`
+	Uptime    string `json:"uptime"`
+	DbItems   int64  `json:"dbItems"`
+	ApiPort   int    `json:"apiPort"`
+	Monitor   bool   `json:"monitor"`
+	AutoStart bool   `json:"autoStart"`
+}
+
+// GetHealth returns current system health status.
+func (a *App) GetHealth() HealthStatus {
+	count, _ := a.repo.Count()
+	uptime := time.Since(a.startedAt).Truncate(time.Second).String()
+	return HealthStatus{
+		Status:    "running",
+		Uptime:    uptime,
+		DbItems:   count,
+		ApiPort:   a.config.Port,
+		Monitor:   a.monitor != nil,
+		AutoStart: autostart.IsEnabled(),
+	}
 }

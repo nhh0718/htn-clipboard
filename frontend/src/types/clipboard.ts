@@ -17,6 +17,16 @@ export interface SearchFilter {
   timeRange: string // "" | "1h" | "24h" | "7d" | "30d"
 }
 
+// Health check status from backend
+export interface HealthStatus {
+  status: string
+  uptime: string
+  dbItems: number
+  apiPort: number
+  monitor: boolean
+  autoStart: boolean
+}
+
 // Application configuration
 export interface AppConfig {
   port: number
@@ -25,4 +35,5 @@ export interface AppConfig {
   maxItems: number
   hotkey: string
   dataDir: string
+  autoStart: boolean
 }

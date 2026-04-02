@@ -2,7 +2,7 @@
 // Used when the real wailsjs/go/main/App bindings are not yet generated,
 // or when running outside the Wails runtime (e.g. browser dev mode).
 
-import type { ClipboardItem, AppConfig, SearchFilter } from '../types/clipboard'
+import type { ClipboardItem, AppConfig, SearchFilter, HealthStatus } from '../types/clipboard'
 
 const MOCK_ITEMS: ClipboardItem[] = [
   {
@@ -64,6 +64,7 @@ const MOCK_CONFIG: AppConfig = {
   maxItems: 500,
   hotkey: 'Ctrl+Shift+V',
   dataDir: 'C:\\Users\\User\\AppData\\Local\\ClipboardPro',
+  autoStart: true,
 }
 
 export function GetHistory(limit: number, offset: number): Promise<ClipboardItem[]> {
@@ -104,4 +105,15 @@ export function GetConfig(): Promise<AppConfig> {
 export function SaveConfig(config: AppConfig): Promise<void> {
   console.log('[stub] SaveConfig', config)
   return Promise.resolve()
+}
+
+export function GetHealth(): Promise<HealthStatus> {
+  return Promise.resolve({
+    status: 'running',
+    uptime: '1h23m45s',
+    dbItems: 42,
+    apiPort: 27843,
+    monitor: true,
+    autoStart: true,
+  })
 }

@@ -16,6 +16,7 @@ type Config struct {
 	MaxItems      int    `json:"maxItems"`
 	Hotkey        string `json:"hotkey"`
 	DataDir       string `json:"dataDir"`
+	AutoStart     bool   `json:"autoStart"` // launch on system boot (default: true)
 }
 
 func configDir() string {
@@ -40,6 +41,7 @@ func defaults() *Config {
 		MaxItems:      1000,
 		Hotkey:        "ctrl+shift+v",
 		DataDir:       defaultDataDir(),
+		AutoStart:     true,
 	}
 }
 

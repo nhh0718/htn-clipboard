@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, type ReactNode } from 'react'
-import { X, Eye, EyeOff, Copy, Moon, Sun, Globe } from 'lucide-react'
-import type { AppConfig } from '../types/clipboard'
-import { GetConfig, SaveConfig } from '../services/wails-bridge'
+import { X, Eye, EyeOff, Copy, Moon, Sun, Globe, Activity } from 'lucide-react'
+import type { AppConfig, HealthStatus } from '../types/clipboard'
+import { GetConfig, SaveConfig, GetHealth } from '../services/wails-bridge'
 import { LangContext, LangSetterContext, useTranslation, type Lang } from '../lib/i18n'
 import { ThemeContext, type Theme } from '../lib/theme'
 
@@ -18,10 +18,12 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [config, setConfig] = useState<AppConfig | null>(null)
   const [retentionDays, setRetentionDays] = useState(30)
   const [maxItems, setMaxItems] = useState(1000)
+  const [autoStart, setAutoStart] = useState(true)
   const [tokenVisible, setTokenVisible] = useState(false)
   const [tokenCopied, setTokenCopied] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [health, setHealth] = useState<HealthStatus | null>(null)
 
   useEffect(() => {
     GetConfig()
@@ -29,8 +31,13 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         setConfig(cfg)
         setRetentionDays(cfg.retentionDays)
         setMaxItems(cfg.maxItems)
+        setAutoStart(cfg.autoStart)
       })
       .catch(() => setError(t('load_failed')))
+
+    GetHealth()
+      .then(setHealth)
+      .catch(() => {}) // non-critical
   }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleCopyToken() {
@@ -47,7 +54,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     setIsSaving(true)
     setError(null)
     try {
-      const updated: AppConfig = { ...config, retentionDays: days, maxItems: items }
+      const updated: AppConfig = { ...config, retentionDays: days, maxItems: items, autoStart }
       await SaveConfig(updated)
       setConfig(updated)
       onClose()
@@ -105,6 +112,23 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
             <p className="text-sm text-muted-foreground py-2">{t('loading')}</p>
           ) : (
             <>
+              {/* Auto Start toggle */}
+              <Row label={t('auto_start')}>
+                <button
+                  onClick={() => setAutoStart(v => !v)}
+                  className={[
+                    'relative w-10 h-5 rounded-full transition-colors',
+                    autoStart ? 'bg-primary' : 'bg-muted-foreground/30',
+                  ].join(' ')}
+                >
+                  <span className={[
+                    'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform',
+                    autoStart ? 'left-[22px]' : 'left-0.5',
+                  ].join(' ')} />
+                </button>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{t('auto_start_desc')}</p>
+              </Row>
+
               <Row label={t('hotkey')}>
                 <Readonly value={config.hotkey} />
               </Row>
@@ -137,7 +161,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                   </IconBtn>
                   <IconBtn onClick={handleCopyToken} title={t('copy_token')}>
                     {tokenCopied
-                      ? <span className="text-[10px] text-emerald-500 font-semibold">{lang === 'vi' ? 'OK' : 'OK'}</span>
+                      ? <span className="text-[10px] text-emerald-500 font-semibold">OK</span>
                       : <Copy size={13} />}
                   </IconBtn>
                 </div>
@@ -151,6 +175,30 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
                 <Readonly value={config.dataDir} mono />
               </Row>
             </>
+          )}
+        </Section>
+
+        {/* ── Health Check ── */}
+        <Section label={t('health_title')}>
+          {health === null ? (
+            <p className="text-sm text-muted-foreground py-2">{t('loading')}</p>
+          ) : (
+            <div className="rounded-lg border border-border bg-muted/50 p-3 space-y-2">
+              <HealthRow icon={<Activity size={12} className="text-emerald-400" />} label={t('health_status')} value={health.status} />
+              <HealthRow label={t('health_uptime')} value={health.uptime} />
+              <HealthRow label={t('health_items')} value={String(health.dbItems)} />
+              <HealthRow label={t('health_api')} value={`:${health.apiPort}`} />
+              <HealthRow
+                label={t('health_monitor')}
+                value={health.monitor ? t('health_active') : t('health_inactive')}
+                positive={health.monitor}
+              />
+              <HealthRow
+                label={t('health_autostart')}
+                value={health.autoStart ? t('health_enabled') : t('health_disabled')}
+                positive={health.autoStart}
+              />
+            </div>
           )}
         </Section>
 
@@ -241,5 +289,22 @@ function IconBtn({ onClick, title, children }: { onClick: () => void; title: str
     >
       {children}
     </button>
+  )
+}
+
+function HealthRow({ icon, label, value, positive }: { icon?: ReactNode; label: string; value: string; positive?: boolean }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        {icon}
+        {label}
+      </span>
+      <span className={[
+        'font-medium',
+        positive === true ? 'text-emerald-400' : positive === false ? 'text-red-400' : 'text-foreground',
+      ].join(' ')}>
+        {value}
+      </span>
+    </div>
   )
 }

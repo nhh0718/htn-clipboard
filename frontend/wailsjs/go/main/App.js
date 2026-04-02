@@ -14,6 +14,10 @@ export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
 
+export function GetHealth() {
+  return window['go']['main']['App']['GetHealth']();
+}
+
 export function GetHistory(arg1, arg2) {
   return window['go']['main']['App']['GetHistory'](arg1, arg2);
 }

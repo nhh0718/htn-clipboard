@@ -7,6 +7,7 @@ export namespace config {
 	    maxItems: number;
 	    hotkey: string;
 	    dataDir: string;
+	    autoStart: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -20,6 +21,34 @@ export namespace config {
 	        this.maxItems = source["maxItems"];
 	        this.hotkey = source["hotkey"];
 	        this.dataDir = source["dataDir"];
+	        this.autoStart = source["autoStart"];
+	    }
+	}
+
+}
+
+export namespace main {
+	
+	export class HealthStatus {
+	    status: string;
+	    uptime: string;
+	    dbItems: number;
+	    apiPort: number;
+	    monitor: boolean;
+	    autoStart: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new HealthStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.status = source["status"];
+	        this.uptime = source["uptime"];
+	        this.dbItems = source["dbItems"];
+	        this.apiPort = source["apiPort"];
+	        this.monitor = source["monitor"];
+	        this.autoStart = source["autoStart"];
 	    }
 	}
 
