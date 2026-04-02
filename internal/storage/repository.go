@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -62,18 +63,83 @@ func (r *Repository) GetAll(limit, offset int) ([]ClipboardItem, error) {
 	return items, err
 }
 
-// Search performs an FTS5 MATCH query and returns matching items.
-// The query is sanitized to prevent FTS5 injection.
-func (r *Repository) Search(query string, limit int) ([]ClipboardItem, error) {
+// SearchFilter holds optional filters for advanced search.
+type SearchFilter struct {
+	Query    string `json:"query"`    // free-text (FTS5 MATCH on content + source_app)
+	ItemType string `json:"itemType"` // "" = all, "text", "image"
+	TimeRange string `json:"timeRange"` // "" = all, "1h", "24h", "7d", "30d"
+}
+
+// Search performs FTS5 full-text search with optional type and time filters.
+// The query matches against both content and source_app fields.
+func (r *Repository) Search(filter SearchFilter, limit int) ([]ClipboardItem, error) {
 	var items []ClipboardItem
-	err := r.db.Raw(`
-		SELECT ci.* FROM clipboard_items ci
-		JOIN clipboard_fts fts ON fts.rowid = ci.id
-		WHERE clipboard_fts MATCH ?
-		ORDER BY ci.is_pinned DESC, ci.created_at DESC
-		LIMIT ?`, sanitizeFTSQuery(query), limit).
-		Scan(&items).Error
+	var conditions []string
+	var args []any
+
+	// Build the base query — use FTS5 MATCH if query is non-empty
+	useFTS := strings.TrimSpace(filter.Query) != ""
+
+	if useFTS {
+		// FTS5 MATCH searches both content and source_app columns
+		conditions = append(conditions, "clipboard_fts MATCH ?")
+		args = append(args, sanitizeFTSQuery(filter.Query))
+	}
+
+	// Type filter
+	if filter.ItemType == "text" || filter.ItemType == "image" {
+		conditions = append(conditions, "ci.type = ?")
+		args = append(args, filter.ItemType)
+	}
+
+	// Time range filter
+	if cutoff, ok := timeRangeCutoff(filter.TimeRange); ok {
+		conditions = append(conditions, "ci.created_at >= ?")
+		args = append(args, cutoff)
+	}
+
+	// Build final SQL
+	var whereClause string
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var query string
+	if useFTS {
+		query = fmt.Sprintf(`
+			SELECT ci.* FROM clipboard_items ci
+			JOIN clipboard_fts fts ON fts.rowid = ci.id
+			%s
+			ORDER BY ci.is_pinned DESC, ci.created_at DESC
+			LIMIT ?`, whereClause)
+	} else {
+		query = fmt.Sprintf(`
+			SELECT ci.* FROM clipboard_items ci
+			%s
+			ORDER BY ci.is_pinned DESC, ci.created_at DESC
+			LIMIT ?`, whereClause)
+	}
+	args = append(args, limit)
+
+	err := r.db.Raw(query, args...).Scan(&items).Error
 	return items, err
+}
+
+// timeRangeCutoff converts a time range string to a cutoff time.
+func timeRangeCutoff(tr string) (time.Time, bool) {
+	now := time.Now()
+	switch tr {
+	case "1h":
+		return now.Add(-1 * time.Hour), true
+	case "24h":
+		return now.Add(-24 * time.Hour), true
+	case "7d":
+		return now.AddDate(0, 0, -7), true
+	case "30d":
+		return now.AddDate(0, 0, -30), true
+	default:
+		return time.Time{}, false
+	}
 }
 
 // GetAllText returns text-only items for the HTTP API, ordered by pinned first then newest.

@@ -3,7 +3,7 @@
 // guarantees to be available before any app JS executes.
 // Stubs are used ONLY in plain-browser mode (no window.go present).
 
-import type { ClipboardItem, AppConfig } from '../types/clipboard'
+import type { ClipboardItem, AppConfig, SearchFilter } from '../types/clipboard'
 import * as appStubs from '../wailsjs-stubs/go-app-stubs'
 import * as rtStubs from '../wailsjs-stubs/runtime-stubs'
 
@@ -22,8 +22,8 @@ export function GetHistory(limit: number, offset: number): Promise<ClipboardItem
   return inWails() ? goApp().GetHistory(limit, offset) : appStubs.GetHistory(limit, offset)
 }
 
-export function Search(query: string): Promise<ClipboardItem[]> {
-  return inWails() ? goApp().Search(query) : appStubs.Search(query)
+export function Search(filter: SearchFilter): Promise<ClipboardItem[]> {
+  return inWails() ? goApp().Search(filter) : appStubs.Search(filter)
 }
 
 export function CopyItem(id: number): Promise<void> {

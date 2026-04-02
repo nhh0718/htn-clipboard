@@ -32,6 +32,9 @@ export function ClipboardList({
     getScrollElement: () => scrollRef.current,
     estimateSize: () => 80,
     overscan: 5,
+    // Cache measurements by actual item ID, not by index.
+    // Prevents layout drift when new items are prepended at the top.
+    getItemKey: (index) => items[index]?.id ?? index,
   })
 
   // Intersection observer to trigger infinite scroll at bottom sentinel

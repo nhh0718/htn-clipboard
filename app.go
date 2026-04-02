@@ -155,21 +155,29 @@ func (a *App) runCleanup(ctx context.Context, retentionDays, maxItems int) {
 // --- Wails-bound methods ---
 
 // GetHistory returns paginated clipboard history, pinned items first.
+// Always returns a non-nil slice so the frontend never receives JSON null.
 func (a *App) GetHistory(limit, offset int) []storage.ClipboardItem {
 	items, err := a.repo.GetAll(limit, offset)
 	if err != nil {
 		fmt.Println("[app] GetHistory error:", err)
-		return nil
+		return []storage.ClipboardItem{}
+	}
+	if items == nil {
+		return []storage.ClipboardItem{}
 	}
 	return items
 }
 
-// Search performs FTS5 full-text search on clipboard content.
-func (a *App) Search(query string) []storage.ClipboardItem {
-	items, err := a.repo.Search(query, 100)
+// Search performs FTS5 full-text search with optional type and time filters.
+// Always returns a non-nil slice so the frontend never receives JSON null.
+func (a *App) Search(filter storage.SearchFilter) []storage.ClipboardItem {
+	items, err := a.repo.Search(filter, 100)
 	if err != nil {
 		fmt.Println("[app] Search error:", err)
-		return nil
+		return []storage.ClipboardItem{}
+	}
+	if items == nil {
+		return []storage.ClipboardItem{}
 	}
 	return items
 }

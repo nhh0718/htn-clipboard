@@ -2,7 +2,7 @@
 // Used when the real wailsjs/go/main/App bindings are not yet generated,
 // or when running outside the Wails runtime (e.g. browser dev mode).
 
-import type { ClipboardItem, AppConfig } from '../types/clipboard'
+import type { ClipboardItem, AppConfig, SearchFilter } from '../types/clipboard'
 
 const MOCK_ITEMS: ClipboardItem[] = [
   {
@@ -71,13 +71,14 @@ export function GetHistory(limit: number, offset: number): Promise<ClipboardItem
   return Promise.resolve(slice)
 }
 
-export function Search(query: string): Promise<ClipboardItem[]> {
-  const q = query.toLowerCase()
-  const results = MOCK_ITEMS.filter(
+export function Search(filter: SearchFilter): Promise<ClipboardItem[]> {
+  const q = filter.query.toLowerCase()
+  let results = MOCK_ITEMS.filter(
     (item) =>
       item.content.toLowerCase().includes(q) ||
       item.sourceApp.toLowerCase().includes(q)
   )
+  if (filter.itemType) results = results.filter(i => i.type === filter.itemType)
   return Promise.resolve(results)
 }
 

@@ -4,7 +4,7 @@ import './App.css'
 import { SearchBar } from './components/SearchBar'
 import { ClipboardList } from './components/ClipboardList'
 import { SettingsPanel } from './components/SettingsPanel'
-import type { ClipboardItem } from './types/clipboard'
+import type { ClipboardItem, SearchFilter } from './types/clipboard'
 import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff } from './services/wails-bridge'
 import { LangContext, LangSetterContext, useTranslation, type Lang } from './lib/i18n'
 import { ThemeContext, useThemeState } from './lib/theme'
@@ -21,15 +21,15 @@ function App() {
   }, [lang])
 
   const [items, setItems] = useState<ClipboardItem[]>([])
-  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState<SearchFilter>({ query: '', itemType: '', timeRange: '' })
   const [isLoading, setIsLoading] = useState(true)
   const [showSettings, setShowSettings] = useState(false)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
 
-  const queryRef = useRef(query)
-  queryRef.current = query
+  const filterRef = useRef(filter)
+  filterRef.current = filter
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ function App() {
     setIsLoading(true)
     try {
       const currentOffset = reset ? 0 : offset
-      const page = await GetHistory(PAGE_SIZE, currentOffset)
+      const page = (await GetHistory(PAGE_SIZE, currentOffset)) ?? []
       setItems(prev => reset ? page : [...prev, ...page])
       setOffset(currentOffset + page.length)
       setHasMore(page.length === PAGE_SIZE)
@@ -56,9 +56,10 @@ function App() {
     const handler = (item: ClipboardItem) => {
       // id=0 means backend detected a duplicate (dedup path) — discard ghost
       if (!item || !item.id) return
-      if (!queryRef.current) {
+      const f = filterRef.current
+      // Only prepend live items when no active search/filter
+      if (!f.query && !f.itemType && !f.timeRange) {
         setItems(prev => {
-          // avoid duplicates if item already in list
           if (prev.some(i => i.id === item.id)) return prev
           return [item, ...prev]
         })
@@ -71,17 +72,22 @@ function App() {
 
   // ── Search ──────────────────────────────────────────────────────────────────
 
-  const handleSearch = useCallback(async (q: string) => {
-    setQuery(q)
+  const hasActiveFilter = useCallback((f: SearchFilter) => {
+    return f.query.trim() !== '' || f.itemType !== '' || f.timeRange !== ''
+  }, [])
+
+  const handleSearch = useCallback(async (newFilter: SearchFilter) => {
+    setFilter(newFilter)
     setIsLoading(true)
     try {
-      if (q.trim() === '') {
-        const page = await GetHistory(PAGE_SIZE, 0)
+      if (!hasActiveFilter(newFilter)) {
+        // No filters active — show full history
+        const page = (await GetHistory(PAGE_SIZE, 0)) ?? []
         setItems(page)
         setOffset(page.length)
         setHasMore(page.length === PAGE_SIZE)
       } else {
-        const results = await Search(q)
+        const results = (await Search(newFilter)) ?? []
         setItems(results)
         setOffset(results.length)
         setHasMore(false)
@@ -91,13 +97,13 @@ function App() {
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [hasActiveFilter])
 
   // ── Infinite scroll ─────────────────────────────────────────────────────────
 
   const handleLoadMore = useCallback(() => {
-    if (!isLoading && hasMore && !query) loadHistory(false)
-  }, [isLoading, hasMore, query, loadHistory])
+    if (!isLoading && hasMore && !hasActiveFilter(filter)) loadHistory(false)
+  }, [isLoading, hasMore, filter, loadHistory, hasActiveFilter])
 
   // ── Item actions ────────────────────────────────────────────────────────────
 
@@ -106,10 +112,9 @@ function App() {
   }, [])
 
   const handleDelete = useCallback(async (id: number) => {
-    // Optimistically remove from UI first (handles ghost id=0 items too)
     setItems(prev => prev.filter(item => item.id !== id))
     if (selectedId === id) setSelectedId(null)
-    if (!id) return // ghost item — no DB record to delete
+    if (!id) return
     try {
       await DeleteItem(id)
     } catch (err) { console.error('Delete failed:', err) }
@@ -155,6 +160,7 @@ function App() {
             items={items}
             selectedId={selectedId}
             isLoading={isLoading}
+            filter={filter}
             onCopy={handleCopy}
             onDelete={handleDelete}
             onTogglePin={handleTogglePin}
@@ -175,21 +181,27 @@ interface ShellProps {
   items: ClipboardItem[]
   selectedId: number | null
   isLoading: boolean
+  filter: SearchFilter
   onCopy: (id: number) => void
   onDelete: (id: number) => void
   onTogglePin: (id: number) => void
   onLoadMore: () => void
-  onSearch: (q: string) => void
+  onSearch: (f: SearchFilter) => void
 }
 
-function AppShell({ showSettings, setShowSettings, items, selectedId, isLoading, onCopy, onDelete, onTogglePin, onLoadMore, onSearch }: ShellProps) {
+function AppShell({ showSettings, setShowSettings, items, selectedId, isLoading, filter, onCopy, onDelete, onTogglePin, onLoadMore, onSearch }: ShellProps) {
   const t = useTranslation()
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
       {/* Header */}
       <header className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0">
-        <SearchBar onSearch={onSearch} isSearching={isLoading} placeholder={t('search_placeholder')} />
+        <SearchBar
+          filter={filter}
+          onSearch={onSearch}
+          isSearching={isLoading}
+          placeholder={t('search_placeholder')}
+        />
         <button
           onClick={() => setShowSettings(!showSettings)}
           aria-label={t('settings')}

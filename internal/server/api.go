@@ -134,7 +134,12 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		limit = 100
 	}
 
-	items, err := s.repo.Search(q, limit)
+	filter := storage.SearchFilter{
+		Query:     q,
+		ItemType:  r.URL.Query().Get("type"),
+		TimeRange: r.URL.Query().Get("time"),
+	}
+	items, err := s.repo.Search(filter, limit)
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return

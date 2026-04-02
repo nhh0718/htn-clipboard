@@ -36,6 +36,12 @@ const translations = {
     show_token: 'Show token',
     hide_token: 'Hide token',
     copy_token: 'Copy token',
+    // Filters
+    filter: 'Filter',
+    filter_all: 'All',
+    filter_text: 'Text',
+    filter_image: 'Image',
+    filter_anytime: 'Anytime',
     // time
     just_now: 'just now',
   },
@@ -69,6 +75,12 @@ const translations = {
     show_token: 'Hiện mã',
     hide_token: 'Ẩn mã',
     copy_token: 'Chép mã',
+    // Filters
+    filter: 'Lọc',
+    filter_all: 'Tất cả',
+    filter_text: 'Văn bản',
+    filter_image: 'Hình ảnh',
+    filter_anytime: 'Mọi lúc',
     // time
     just_now: 'vừa xong',
   },

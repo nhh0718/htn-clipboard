@@ -10,6 +10,13 @@ export interface ClipboardItem {
   createdAt: string
 }
 
+// Search filter for advanced search
+export interface SearchFilter {
+  query: string
+  itemType: string  // "" | "text" | "image"
+  timeRange: string // "" | "1h" | "24h" | "7d" | "30d"
+}
+
 // Application configuration
 export interface AppConfig {
   port: number
