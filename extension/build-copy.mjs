@@ -4,7 +4,6 @@ import { dirname } from 'path'
 const copies = [
   ['manifest.json', 'dist/manifest.json'],
   ['popup/popup.html', 'dist/popup/popup.html'],
-  ['popup/popup.css', 'dist/popup/popup.css'],
 ]
 
 for (const [src, dst] of copies) {
