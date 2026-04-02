@@ -118,8 +118,15 @@ func (s *Server) handleHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	offset := queryInt(r, "offset", 0)
 
-	// Push type='text' filter into SQL so offset-based pagination is correct.
-	items, err := s.repo.GetAllText(limit, offset)
+	// If type param is specified, filter by type. Otherwise return all types.
+	typeFilter := r.URL.Query().Get("type")
+	var items []storage.ClipboardItem
+	var err error
+	if typeFilter == "text" {
+		items, err = s.repo.GetAllText(limit, offset)
+	} else {
+		items, err = s.repo.GetAll(limit, offset)
+	}
 	if err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
@@ -221,8 +228,16 @@ func (s *Server) handlePaste(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, map[string]string{"error": "item not found"})
 		return
 	}
-	if item.Type == "text" {
+	switch item.Type {
+	case "text":
 		goclip.Write(goclip.FmtText, []byte(item.Content))
+	case "image":
+		if item.FilePath != "" {
+			data, err := os.ReadFile(item.FilePath)
+			if err == nil {
+				goclip.Write(goclip.FmtImage, data)
+			}
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

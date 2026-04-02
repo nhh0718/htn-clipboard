@@ -148,8 +148,18 @@ function renderItems(items) {
 
 async function copyItem(id) {
   try {
-    await fetch(BASE + '/api/v1/paste', { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    const r = await fetch(BASE + '/api/v1/paste', { method: 'POST', headers: { ...headers(), 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) })
+    if (r.ok) showToast('Copied to clipboard!')
   } catch {}
+}
+
+function showToast(msg) {
+  let t = document.getElementById('toast')
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; document.body.appendChild(t) }
+  t.textContent = msg
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--primary);color:#fff;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:99;transition:opacity .3s;opacity:1'
+  clearTimeout(t._timer)
+  t._timer = setTimeout(() => { t.style.opacity = '0' }, 1500)
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML }
