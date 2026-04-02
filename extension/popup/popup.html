@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clipboard Pro</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <input id="search" type="text" placeholder="Search clipboard..." autocomplete="off">
+      <button id="settings-btn" title="Settings">&#9881;</button>
+    </header>
+
+    <div id="status"></div>
+
+    <div id="items-list"></div>
+
+    <div id="settings-panel" hidden>
+      <label for="token-input">Auth Token</label>
+      <div class="token-row">
+        <input id="token-input" type="password" placeholder="Paste token from desktop app">
+        <button id="toggle-token" title="Toggle visibility">&#128065;</button>
+      </div>
+      <button id="save-token">Save Token</button>
+      <p class="hint">Find token in Clipboard Pro &rarr; Settings</p>
+    </div>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

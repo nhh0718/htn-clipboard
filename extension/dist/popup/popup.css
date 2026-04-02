@@ -1,0 +1,262 @@
+/* popup.css — Dark-themed styles for the Clipboard Pro extension popup */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 360px;
+  max-height: 500px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ── Header ── */
+header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: #16213e;
+  border-bottom: 1px solid #2a2a4a;
+  flex-shrink: 0;
+}
+
+#search {
+  flex: 1;
+  padding: 6px 10px;
+  background: #0f3460;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 13px;
+  outline: none;
+}
+
+#search::placeholder {
+  color: #888;
+}
+
+#search:focus {
+  border-color: #533483;
+}
+
+#settings-btn {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+}
+
+#settings-btn:hover {
+  color: #e0e0e0;
+  background: #2a2a4a;
+}
+
+/* ── Status bar ── */
+#status {
+  font-size: 11px;
+  padding: 4px 12px;
+  min-height: 22px;
+  flex-shrink: 0;
+}
+
+#status.connected {
+  color: #4caf50;
+}
+
+#status.disconnected {
+  color: #f44336;
+}
+
+#status.loading {
+  color: #888;
+}
+
+/* ── Items list ── */
+#items-list {
+  overflow-y: auto;
+  max-height: 380px;
+  flex: 1;
+}
+
+#items-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+#items-list::-webkit-scrollbar-track {
+  background: #1a1a2e;
+}
+
+#items-list::-webkit-scrollbar-thumb {
+  background: #2a2a4a;
+  border-radius: 3px;
+}
+
+.item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #2a2a4a;
+  transition: background 0.1s;
+  user-select: none;
+}
+
+.item:hover {
+  background: #2a2a4a;
+}
+
+.item:last-child {
+  border-bottom: none;
+}
+
+.item-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e0e0e0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.item-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3px;
+  font-size: 10px;
+  color: #666;
+}
+
+.item-meta .source-app {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 180px;
+}
+
+.item-pinned {
+  color: #ffb74d;
+  font-size: 10px;
+}
+
+.empty-state {
+  padding: 32px 16px;
+  text-align: center;
+  color: #555;
+  font-size: 12px;
+}
+
+/* ── Settings panel ── */
+#settings-panel {
+  padding: 14px 12px;
+  background: #16213e;
+  border-top: 1px solid #2a2a4a;
+  flex-shrink: 0;
+}
+
+#settings-panel label {
+  display: block;
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.token-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+#token-input {
+  flex: 1;
+  padding: 6px 10px;
+  background: #0f3460;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  color: #e0e0e0;
+  font-size: 12px;
+  font-family: monospace;
+  outline: none;
+}
+
+#token-input:focus {
+  border-color: #533483;
+}
+
+#toggle-token {
+  background: transparent;
+  border: 1px solid #2a2a4a;
+  border-radius: 6px;
+  color: #888;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px 8px;
+  transition: color 0.15s, background 0.15s;
+}
+
+#toggle-token:hover {
+  color: #e0e0e0;
+  background: #2a2a4a;
+}
+
+#save-token {
+  width: 100%;
+  padding: 7px;
+  background: #533483;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+#save-token:hover {
+  background: #6a42a8;
+}
+
+.hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #555;
+  text-align: center;
+}
+
+/* ── Toast notification ── */
+.toast {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #533483;
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.3s;
+  z-index: 9999;
+  white-space: nowrap;
+}
+
+.toast.fade-out {
+  opacity: 0;
+}

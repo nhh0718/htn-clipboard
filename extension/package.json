@@ -1,0 +1,13 @@
+{
+  "name": "clipboard-pro-extension",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc --project tsconfig.json && node build-copy.mjs",
+    "watch": "tsc --project tsconfig.json --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/chrome": "^0.0.268"
+  }
+}
