@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"clipboard-pro/internal/storage"
@@ -30,6 +31,11 @@ type Monitor struct {
 	lastImageHash string // tracks last-seen image to avoid duplicates
 	ctx           context.Context
 	cancel        context.CancelFunc
+
+	// suppressMu guards suppressUntil — allows CopyItem to silence the monitor
+	// for 2 s so a programmatic write doesn't create a ghost entry.
+	suppressMu    sync.Mutex
+	suppressUntil time.Time
 }
 
 // NewMonitor creates a Monitor. Call Start to begin watching.
@@ -37,18 +43,31 @@ func NewMonitor(repo *storage.Repository, dataDir string) *Monitor {
 	return &Monitor{repo: repo, dataDir: dataDir}
 }
 
+// SuppressNext tells the monitor to ignore clipboard changes for 2 seconds.
+// Call this immediately after writing to the clipboard programmatically.
+func (m *Monitor) SuppressNext() {
+	m.suppressMu.Lock()
+	m.suppressUntil = time.Now().Add(2 * time.Second)
+	m.suppressMu.Unlock()
+}
+
+// isSuppressed returns true if we are inside a suppression window.
+func (m *Monitor) isSuppressed() bool {
+	m.suppressMu.Lock()
+	defer m.suppressMu.Unlock()
+	return time.Now().Before(m.suppressUntil)
+}
+
 // Start launches the clipboard polling goroutine.
 // wailsCtx is used for runtime event emission; it must be the context
 // provided by Wails in app.startup.
 func (m *Monitor) Start(wailsCtx context.Context) {
 	if err := goclip.Init(); err != nil {
-		// clipboard unavailable — log and return gracefully
 		fmt.Println("[clipboard] init error:", err)
 		return
 	}
 
 	m.ctx, m.cancel = context.WithCancel(context.Background())
-
 	go m.poll(wailsCtx)
 }
 
@@ -66,9 +85,26 @@ func (m *Monitor) poll(wailsCtx context.Context) {
 		case <-m.ctx.Done():
 			return
 		case <-time.After(pollInterval):
+			if m.isSuppressed() {
+				// still in suppression window — update hashes so we don't
+				// emit after the window ends, but don't persist or emit events.
+				m.syncHashesOnly()
+				continue
+			}
 			m.checkText(wailsCtx)
 			m.checkImage(wailsCtx)
 		}
+	}
+}
+
+// syncHashesOnly updates lastTextHash / lastImageHash without saving or emitting.
+// Called during suppression windows so we swallow the programmatic write silently.
+func (m *Monitor) syncHashesOnly() {
+	if data := goclip.Read(goclip.FmtText); len(data) > 0 {
+		m.lastTextHash = hashBytes(data)
+	}
+	if data := goclip.Read(goclip.FmtImage); len(data) > 0 {
+		m.lastImageHash = hashBytes(data)
 	}
 }
 
@@ -83,11 +119,14 @@ func (m *Monitor) checkText(wailsCtx context.Context) {
 	if hash == m.lastTextHash {
 		return
 	}
+	// Update hash immediately so rapid changes don't double-fire.
+	m.lastTextHash = hash
 
 	item := &storage.ClipboardItem{
 		Type:        "text",
 		Content:     string(data),
 		ContentHash: hash,
+		SourceApp:   getSourceApp(),
 		CreatedAt:   time.Now(),
 	}
 
@@ -96,7 +135,11 @@ func (m *Monitor) checkText(wailsCtx context.Context) {
 		return
 	}
 
-	m.lastTextHash = hash
+	// GORM sets item.ID on successful Create; ID==0 means duplicate — don't emit.
+	if item.ID == 0 {
+		return
+	}
+
 	emitNew(wailsCtx, item)
 }
 
@@ -114,6 +157,7 @@ func (m *Monitor) checkImage(wailsCtx context.Context) {
 	if hash == m.lastImageHash {
 		return
 	}
+	m.lastImageHash = hash
 
 	filePath, err := m.saveImageFile(data)
 	if err != nil {
@@ -125,6 +169,7 @@ func (m *Monitor) checkImage(wailsCtx context.Context) {
 		Type:        "image",
 		FilePath:    filePath,
 		ContentHash: hash,
+		SourceApp:   getSourceApp(),
 		CreatedAt:   time.Now(),
 	}
 
@@ -134,19 +179,23 @@ func (m *Monitor) checkImage(wailsCtx context.Context) {
 		return
 	}
 
-	m.lastImageHash = hash
+	// ID==0 means duplicate hash already in DB — remove the redundant file.
+	if item.ID == 0 {
+		_ = os.Remove(filePath)
+		return
+	}
+
 	emitNew(wailsCtx, item)
 }
 
-// saveImageFile encodes raw RGBA bytes as PNG and writes to dataDir/items/{uuid}.png.
-// Returns an error if the data cannot be decoded as a valid PNG image.
+// saveImageFile encodes RGBA/PNG bytes as PNG and writes to dataDir/items/{uuid}.png.
 func (m *Monitor) saveImageFile(data []byte) (string, error) {
 	itemsDir := filepath.Join(m.dataDir, "items")
 	if err := os.MkdirAll(itemsDir, 0700); err != nil {
 		return "", err
 	}
 
-	// data from golang.design/x/clipboard is NRGBA pixel data; must be valid PNG
+	// golang.design/x/clipboard returns PNG-encoded data for FmtImage.
 	img, err := png.Decode(bytes.NewReader(data))
 	if err != nil {
 		return "", fmt.Errorf("saveImageFile: invalid PNG data: %w", err)

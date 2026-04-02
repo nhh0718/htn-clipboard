@@ -18,7 +18,7 @@ func main() {
 		Title:            "Clipboard Pro",
 		Width:            400,
 		Height:           600,
-		StartHidden:      true,
+		StartHidden:      false,
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		AssetServer: &assetserver.Options{
 			Assets: assets,

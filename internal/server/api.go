@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -29,6 +31,8 @@ func NewServer(repo *storage.Repository, cfg *config.Config) *Server {
 	mux.HandleFunc("/api/v1/history", s.authMiddleware(s.handleHistory))
 	mux.HandleFunc("/api/v1/search", s.authMiddleware(s.handleSearch))
 	mux.HandleFunc("/api/v1/paste", s.authMiddleware(s.handlePaste))
+	// Image files served without auth — localhost-only and no sensitive data
+	mux.HandleFunc("/api/v1/image/", s.handleImage)
 	s.server = &http.Server{
 		Addr:    fmt.Sprintf("127.0.0.1:%d", cfg.Port),
 		Handler: s.corsMiddleware(mux),
@@ -139,6 +143,45 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		items = []storage.ClipboardItem{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"items": items, "total": len(items)})
+}
+
+// handleImage serves an image file by item ID.
+// No auth required — endpoint is localhost-only and item IDs are not sensitive.
+func (s *Server) handleImage(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// Extract ID from URL: /api/v1/image/{id}
+	idStr := strings.TrimPrefix(r.URL.Path, "/api/v1/image/")
+	id, err := strconv.ParseUint(idStr, 10, 64)
+	if err != nil || id == 0 {
+		http.Error(w, "invalid id", http.StatusBadRequest)
+		return
+	}
+
+	item, err := s.repo.GetByID(uint(id))
+	if err != nil || item.Type != "image" || item.FilePath == "" {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	// Only serve files within the configured DataDir to prevent path traversal
+	absPath := item.FilePath
+	if !strings.HasPrefix(filepath.ToSlash(absPath), filepath.ToSlash(s.config.DataDir)) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write(data)
 }
 
 func (s *Server) handlePaste(w http.ResponseWriter, r *http.Request) {

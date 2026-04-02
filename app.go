@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"clipboard-pro/internal/clipboard"
@@ -174,13 +175,29 @@ func (a *App) Search(query string) []storage.ClipboardItem {
 }
 
 // CopyItem writes the clipboard item back to the system clipboard.
+// Suppresses the monitor for 2 s so the programmatic write doesn't
+// create a duplicate/ghost entry in the history.
 func (a *App) CopyItem(id uint) error {
 	item, err := a.repo.GetByID(id)
 	if err != nil {
 		return err
 	}
-	if item.Type == "text" {
+	switch item.Type {
+	case "text":
 		goclip.Write(goclip.FmtText, []byte(item.Content))
+	case "image":
+		if item.FilePath == "" {
+			return fmt.Errorf("image file path is empty")
+		}
+		data, err := os.ReadFile(item.FilePath)
+		if err != nil {
+			return fmt.Errorf("read image file: %w", err)
+		}
+		goclip.Write(goclip.FmtImage, data)
+	}
+	// Suppress monitor so this programmatic write isn't re-saved as new item
+	if a.monitor != nil {
+		a.monitor.SuppressNext()
 	}
 	return nil
 }

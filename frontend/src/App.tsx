@@ -54,8 +54,14 @@ function App() {
 
   useEffect(() => {
     const handler = (item: ClipboardItem) => {
+      // id=0 means backend detected a duplicate (dedup path) — discard ghost
+      if (!item || !item.id) return
       if (!queryRef.current) {
-        setItems(prev => [item, ...prev])
+        setItems(prev => {
+          // avoid duplicates if item already in list
+          if (prev.some(i => i.id === item.id)) return prev
+          return [item, ...prev]
+        })
         setOffset(o => o + 1)
       }
     }
@@ -100,10 +106,12 @@ function App() {
   }, [])
 
   const handleDelete = useCallback(async (id: number) => {
+    // Optimistically remove from UI first (handles ghost id=0 items too)
+    setItems(prev => prev.filter(item => item.id !== id))
+    if (selectedId === id) setSelectedId(null)
+    if (!id) return // ghost item — no DB record to delete
     try {
       await DeleteItem(id)
-      setItems(prev => prev.filter(item => item.id !== id))
-      if (selectedId === id) setSelectedId(null)
     } catch (err) { console.error('Delete failed:', err) }
   }, [selectedId])
 
