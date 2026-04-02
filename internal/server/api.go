@@ -60,6 +60,8 @@ func NewServer(repo *storage.Repository, cfg *config.Config, assets *embed.FS) *
 	mux.HandleFunc("/api/v1/history", s.authMiddleware(s.handleHistory))
 	mux.HandleFunc("/api/v1/search", s.authMiddleware(s.handleSearch))
 	mux.HandleFunc("/api/v1/paste", s.authMiddleware(s.handlePaste))
+	mux.HandleFunc("/api/v1/delete", s.authMiddleware(s.handleDelete))
+	mux.HandleFunc("/api/v1/pin", s.authMiddleware(s.handlePin))
 	// Image files served without auth — localhost-only and no sensitive data
 	mux.HandleFunc("/api/v1/image/", s.handleImage)
 	s.server = &http.Server{
@@ -257,6 +259,44 @@ func (s *Server) handlePaste(w http.ResponseWriter, r *http.Request) {
 				goclip.Write(goclip.FmtImage, data)
 			}
 		}
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var body struct {
+		ID uint `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ID == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+		return
+	}
+	if err := s.repo.Delete(body.ID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	var body struct {
+		ID uint `json:"id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.ID == 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid body"})
+		return
+	}
+	if err := s.repo.TogglePin(body.ID); err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
+		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

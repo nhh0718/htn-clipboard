@@ -11,6 +11,7 @@ import { ThemeContext, useThemeState } from './lib/theme'
 import { BrowserTokenPrompt } from './components/BrowserTokenPrompt'
 
 const PAGE_SIZE = 50
+const BROWSER_POLL_INTERVAL = 3000 // 3s polling for browser mode
 
 function App() {
   const { theme, setTheme } = useThemeState()
@@ -54,16 +55,19 @@ function App() {
     }
   }, [offset])
 
-  useEffect(() => { loadHistory(true) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+  // Load history when browserAuthed becomes true (covers both initial mount and post-token-entry)
+  useEffect(() => {
+    if (browserAuthed) loadHistory(true)
+  }, [browserAuthed])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Wails events ────────────────────────────────────────────────────────────
+  // ── Wails events (native app) ──────────────────────────────────────────────
 
   useEffect(() => {
+    if (!inWails()) return // browser mode uses polling instead
+
     const handler = (item: ClipboardItem) => {
-      // id=0 means backend detected a duplicate (dedup path) — discard ghost
       if (!item || !item.id) return
       const f = filterRef.current
-      // Only prepend live items when no active search/filter
       if (!f.query && !f.itemType && !f.timeRange) {
         setItems(prev => {
           if (prev.some(i => i.id === item.id)) return prev
@@ -76,6 +80,31 @@ function App() {
     return () => EventsOff('clipboard:new')
   }, [])
 
+  // ── Browser polling (web dashboard) ────────────────────────────────────────
+
+  useEffect(() => {
+    if (inWails() || !browserAuthed) return
+
+    const interval = setInterval(async () => {
+      const f = filterRef.current
+      // Only poll when no active search/filter
+      if (f.query || f.itemType || f.timeRange) return
+
+      try {
+        const fresh = (await GetHistory(PAGE_SIZE, 0)) ?? []
+        setItems(prev => {
+          // Merge: use fresh list as source of truth (handles new items, pin reorder, deletes)
+          if (JSON.stringify(fresh.map(i => i.id)) !== JSON.stringify(prev.slice(0, fresh.length).map(i => i.id))) {
+            return fresh
+          }
+          return prev
+        })
+      } catch { /* silent */ }
+    }, BROWSER_POLL_INTERVAL)
+
+    return () => clearInterval(interval)
+  }, [browserAuthed])
+
   // ── Search ──────────────────────────────────────────────────────────────────
 
   const hasActiveFilter = useCallback((f: SearchFilter) => {
@@ -87,7 +116,6 @@ function App() {
     setIsLoading(true)
     try {
       if (!hasActiveFilter(newFilter)) {
-        // No filters active — show full history
         const page = (await GetHistory(PAGE_SIZE, 0)) ?? []
         setItems(page)
         setOffset(page.length)
@@ -129,7 +157,16 @@ function App() {
   const handleTogglePin = useCallback(async (id: number) => {
     try {
       await TogglePin(id)
-      setItems(prev => prev.map(item => item.id === id ? { ...item, isPinned: !item.isPinned } : item))
+      // Flip isPinned AND re-sort: pinned first, then by createdAt desc
+      setItems(prev => {
+        const updated = prev.map(item =>
+          item.id === id ? { ...item, isPinned: !item.isPinned } : item
+        )
+        return updated.sort((a, b) => {
+          if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        })
+      })
     } catch (err) { console.error('Toggle pin failed:', err) }
   }, [])
 

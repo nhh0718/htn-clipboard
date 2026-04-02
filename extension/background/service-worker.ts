@@ -1,18 +1,7 @@
 // service-worker.ts — API client + message handler for Clipboard Pro extension.
 
-interface ClipboardItem {
-  id: number
-  type: string
-  content: string
-  filePath: string
-  contentHash: string
-  sourceApp: string
-  isPinned: boolean
-  createdAt: string
-}
-
 interface HistoryResponse {
-  items: ClipboardItem[]
+  items: unknown[]
   total: number
 }
 
@@ -21,13 +10,15 @@ interface MessageRequest {
   limit?: number
   offset?: number
   query?: string
+  type?: string
+  time?: string
   id?: number
 }
 
 interface MessageResponse {
   ok?: boolean
   error?: string
-  items?: ClipboardItem[]
+  items?: unknown[]
   total?: number
 }
 
@@ -68,9 +59,14 @@ class ClipboardProAPI {
     return r.json() as Promise<HistoryResponse>
   }
 
-  async search(query: string, limit: number): Promise<HistoryResponse> {
+  async search(query: string, type: string, time: string, limit: number): Promise<HistoryResponse> {
+    const params = new URLSearchParams()
+    if (query) params.set('q', query)
+    if (type) params.set('type', type)
+    if (time) params.set('time', time)
+    params.set('limit', String(limit))
     const r = await fetch(
-      `${this.baseUrl}/api/v1/search?q=${encodeURIComponent(query)}&limit=${limit}`,
+      `${this.baseUrl}/api/v1/search?${params}`,
       { headers: this.headers(), signal: AbortSignal.timeout(3000) }
     )
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -79,6 +75,26 @@ class ClipboardProAPI {
 
   async paste(id: number): Promise<void> {
     const r = await fetch(`${this.baseUrl}/api/v1/paste`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ id }),
+      signal: AbortSignal.timeout(3000),
+    })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  }
+
+  async deleteItem(id: number): Promise<void> {
+    const r = await fetch(`${this.baseUrl}/api/v1/delete`, {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ id }),
+      signal: AbortSignal.timeout(3000),
+    })
+    if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  }
+
+  async togglePin(id: number): Promise<void> {
+    const r = await fetch(`${this.baseUrl}/api/v1/pin`, {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ id }),
@@ -107,15 +123,25 @@ chrome.runtime.onMessage.addListener(
           return { ok: await api.ping() }
 
         case 'getHistory':
-          return api.getHistory(msg.limit ?? 20, msg.offset ?? 0)
+          return api.getHistory(msg.limit ?? 30, msg.offset ?? 0)
 
         case 'search':
-          if (!msg.query) return { items: [], total: 0 }
-          return api.search(msg.query, msg.limit ?? 20)
+          if (!msg.query && !msg.type && !msg.time) return { items: [], total: 0 }
+          return api.search(msg.query ?? '', msg.type ?? '', msg.time ?? '', msg.limit ?? 30)
 
         case 'paste':
           if (msg.id === undefined) return { error: 'missing id' }
           await api.paste(msg.id)
+          return { ok: true }
+
+        case 'delete':
+          if (msg.id === undefined) return { error: 'missing id' }
+          await api.deleteItem(msg.id)
+          return { ok: true }
+
+        case 'pin':
+          if (msg.id === undefined) return { error: 'missing id' }
+          await api.togglePin(msg.id)
           return { ok: true }
 
         default:

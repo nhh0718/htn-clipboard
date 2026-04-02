@@ -33,14 +33,42 @@ class ClipboardProAPI {
             throw new Error(`HTTP ${r.status}`);
         return r.json();
     }
-    async search(query, limit) {
-        const r = await fetch(`${this.baseUrl}/api/v1/search?q=${encodeURIComponent(query)}&limit=${limit}`, { headers: this.headers(), signal: AbortSignal.timeout(3000) });
+    async search(query, type, time, limit) {
+        const params = new URLSearchParams();
+        if (query)
+            params.set('q', query);
+        if (type)
+            params.set('type', type);
+        if (time)
+            params.set('time', time);
+        params.set('limit', String(limit));
+        const r = await fetch(`${this.baseUrl}/api/v1/search?${params}`, { headers: this.headers(), signal: AbortSignal.timeout(3000) });
         if (!r.ok)
             throw new Error(`HTTP ${r.status}`);
         return r.json();
     }
     async paste(id) {
         const r = await fetch(`${this.baseUrl}/api/v1/paste`, {
+            method: 'POST',
+            headers: this.headers(),
+            body: JSON.stringify({ id }),
+            signal: AbortSignal.timeout(3000),
+        });
+        if (!r.ok)
+            throw new Error(`HTTP ${r.status}`);
+    }
+    async deleteItem(id) {
+        const r = await fetch(`${this.baseUrl}/api/v1/delete`, {
+            method: 'POST',
+            headers: this.headers(),
+            body: JSON.stringify({ id }),
+            signal: AbortSignal.timeout(3000),
+        });
+        if (!r.ok)
+            throw new Error(`HTTP ${r.status}`);
+    }
+    async togglePin(id) {
+        const r = await fetch(`${this.baseUrl}/api/v1/pin`, {
             method: 'POST',
             headers: this.headers(),
             body: JSON.stringify({ id }),
@@ -65,15 +93,25 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
             case 'ping':
                 return { ok: await api.ping() };
             case 'getHistory':
-                return api.getHistory(msg.limit ?? 20, msg.offset ?? 0);
+                return api.getHistory(msg.limit ?? 30, msg.offset ?? 0);
             case 'search':
-                if (!msg.query)
+                if (!msg.query && !msg.type && !msg.time)
                     return { items: [], total: 0 };
-                return api.search(msg.query, msg.limit ?? 20);
+                return api.search(msg.query ?? '', msg.type ?? '', msg.time ?? '', msg.limit ?? 30);
             case 'paste':
                 if (msg.id === undefined)
                     return { error: 'missing id' };
                 await api.paste(msg.id);
+                return { ok: true };
+            case 'delete':
+                if (msg.id === undefined)
+                    return { error: 'missing id' };
+                await api.deleteItem(msg.id);
+                return { ok: true };
+            case 'pin':
+                if (msg.id === undefined)
+                    return { error: 'missing id' };
+                await api.togglePin(msg.id);
                 return { ok: true };
             default:
                 return { error: 'unknown action' };

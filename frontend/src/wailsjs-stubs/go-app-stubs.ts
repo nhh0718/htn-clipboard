@@ -3,7 +3,8 @@
 
 import type { ClipboardItem, AppConfig, SearchFilter, HealthStatus } from '../types/clipboard'
 
-const API_BASE = `http://127.0.0.1:27843`
+// Same-origin: frontend is served from the API server, so use relative URLs.
+const API_BASE = ''
 
 function getToken(): string {
   return localStorage.getItem('clipboard-pro-token') ?? ''

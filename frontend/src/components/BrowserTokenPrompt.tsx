@@ -16,7 +16,7 @@ export function BrowserTokenPrompt({ onConnect }: BrowserTokenPromptProps) {
 
     setError('')
     try {
-      const r = await fetch('http://127.0.0.1:27843/api/v1/history?limit=1', {
+      const r = await fetch('/api/v1/history?limit=1', {
         headers: { Authorization: `Bearer ${trimmed}` },
       })
       if (r.ok) {
