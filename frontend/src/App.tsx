@@ -6,15 +6,20 @@ import { ClipboardList } from './components/ClipboardList'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { ClipboardItem } from './types/clipboard'
 import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff } from './services/wails-bridge'
+import { LangContext, LangSetterContext, useTranslation, type Lang } from './lib/i18n'
+import { ThemeContext, useThemeState } from './lib/theme'
 
 const PAGE_SIZE = 50
 
-// Apply dark mode to the document root once
-if (typeof document !== 'undefined') {
-  document.documentElement.classList.add('dark')
-}
-
 function App() {
+  const { theme, setTheme } = useThemeState()
+  const [lang, setLang] = useState<Lang>(() => (localStorage.getItem('clipboard-pro-lang') as Lang) ?? 'en')
+
+  // Persist lang to localStorage
+  useEffect(() => {
+    localStorage.setItem('clipboard-pro-lang', lang)
+  }, [lang])
+
   const [items, setItems] = useState<ClipboardItem[]>([])
   const [query, setQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
@@ -23,7 +28,6 @@ function App() {
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
 
-  // Track current query in a ref so event callbacks stay stable
   const queryRef = useRef(query)
   queryRef.current = query
 
@@ -34,30 +38,25 @@ function App() {
     try {
       const currentOffset = reset ? 0 : offset
       const page = await GetHistory(PAGE_SIZE, currentOffset)
-      setItems((prev) => reset ? page : [...prev, ...page])
+      setItems(prev => reset ? page : [...prev, ...page])
       setOffset(currentOffset + page.length)
       setHasMore(page.length === PAGE_SIZE)
     } catch (err) {
-      console.error('Failed to load clipboard history:', err)
+      console.error('Failed to load history:', err)
     } finally {
       setIsLoading(false)
     }
   }, [offset])
 
-  // Initial load
-  useEffect(() => {
-    loadHistory(true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  useEffect(() => { loadHistory(true) }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Wails event: new clipboard item captured by Go backend ─────────────────
+  // ── Wails events ────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const handler = (item: ClipboardItem) => {
-      // Only prepend when not in search mode
       if (!queryRef.current) {
-        setItems((prev) => [item, ...prev])
-        setOffset((o) => o + 1)
+        setItems(prev => [item, ...prev])
+        setOffset(o => o + 1)
       }
     }
     EventsOn('clipboard:new', handler as (...data: unknown[]) => void)
@@ -71,7 +70,6 @@ function App() {
     setIsLoading(true)
     try {
       if (q.trim() === '') {
-        // Reset to full history
         const page = await GetHistory(PAGE_SIZE, 0)
         setItems(page)
         setOffset(page.length)
@@ -92,42 +90,28 @@ function App() {
   // ── Infinite scroll ─────────────────────────────────────────────────────────
 
   const handleLoadMore = useCallback(() => {
-    if (!isLoading && hasMore && !query) {
-      loadHistory(false)
-    }
+    if (!isLoading && hasMore && !query) loadHistory(false)
   }, [isLoading, hasMore, query, loadHistory])
 
   // ── Item actions ────────────────────────────────────────────────────────────
 
   const handleCopy = useCallback(async (id: number) => {
-    try {
-      await CopyItem(id)
-    } catch (err) {
-      console.error('Copy failed:', err)
-    }
+    try { await CopyItem(id) } catch (err) { console.error('Copy failed:', err) }
   }, [])
 
   const handleDelete = useCallback(async (id: number) => {
     try {
       await DeleteItem(id)
-      setItems((prev) => prev.filter((item) => item.id !== id))
+      setItems(prev => prev.filter(item => item.id !== id))
       if (selectedId === id) setSelectedId(null)
-    } catch (err) {
-      console.error('Delete failed:', err)
-    }
+    } catch (err) { console.error('Delete failed:', err) }
   }, [selectedId])
 
   const handleTogglePin = useCallback(async (id: number) => {
     try {
       await TogglePin(id)
-      setItems((prev) =>
-        prev.map((item) =>
-          item.id === id ? { ...item, isPinned: !item.isPinned } : item
-        )
-      )
-    } catch (err) {
-      console.error('Toggle pin failed:', err)
-    }
+      setItems(prev => prev.map(item => item.id === id ? { ...item, isPinned: !item.isPinned } : item))
+    } catch (err) { console.error('Toggle pin failed:', err) }
   }, [])
 
   // ── Keyboard navigation ─────────────────────────────────────────────────────
@@ -135,31 +119,18 @@ function App() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (showSettings) return
-
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
-        setSelectedId((cur) => {
+        setSelectedId(cur => {
           if (items.length === 0) return null
-          const idx = items.findIndex((i) => i.id === cur)
-          if (e.key === 'ArrowDown') {
-            const next = idx < items.length - 1 ? idx + 1 : 0
-            return items[next].id
-          } else {
-            const prev = idx > 0 ? idx - 1 : items.length - 1
-            return items[prev].id
-          }
+          const idx = items.findIndex(i => i.id === cur)
+          if (e.key === 'ArrowDown') return items[Math.min(idx + 1, items.length - 1)].id
+          return items[Math.max(idx - 1, 0)].id
         })
       }
-
-      if (e.key === 'Enter' && selectedId !== null) {
-        handleCopy(selectedId)
-      }
-
-      if (e.key === 'Escape') {
-        setSelectedId(null)
-      }
+      if (e.key === 'Enter' && selectedId !== null) handleCopy(selectedId)
+      if (e.key === 'Escape') setSelectedId(null)
     }
-
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [items, selectedId, showSettings, handleCopy])
@@ -167,25 +138,65 @@ function App() {
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
+    <ThemeContext.Provider value={{ theme, setTheme }}>
+      <LangContext.Provider value={lang}>
+        <LangSetterContext.Provider value={{ setLang }}>
+          <AppShell
+            showSettings={showSettings}
+            setShowSettings={setShowSettings}
+            items={items}
+            selectedId={selectedId}
+            isLoading={isLoading}
+            onCopy={handleCopy}
+            onDelete={handleDelete}
+            onTogglePin={handleTogglePin}
+            onLoadMore={handleLoadMore}
+            onSearch={handleSearch}
+          />
+        </LangSetterContext.Provider>
+      </LangContext.Provider>
+    </ThemeContext.Provider>
+  )
+}
+
+// ── AppShell reads translation from context ───────────────────────────────────
+
+interface ShellProps {
+  showSettings: boolean
+  setShowSettings: (v: boolean) => void
+  items: ClipboardItem[]
+  selectedId: number | null
+  isLoading: boolean
+  onCopy: (id: number) => void
+  onDelete: (id: number) => void
+  onTogglePin: (id: number) => void
+  onLoadMore: () => void
+  onSearch: (q: string) => void
+}
+
+function AppShell({ showSettings, setShowSettings, items, selectedId, isLoading, onCopy, onDelete, onTogglePin, onLoadMore, onSearch }: ShellProps) {
+  const t = useTranslation()
+
+  return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
       {/* Header */}
       <header className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0">
-        <SearchBar onSearch={handleSearch} isSearching={isLoading} />
+        <SearchBar onSearch={onSearch} isSearching={isLoading} placeholder={t('search_placeholder')} />
         <button
-          onClick={() => setShowSettings((v) => !v)}
-          aria-label="Open settings"
+          onClick={() => setShowSettings(!showSettings)}
+          aria-label={t('settings')}
           className={[
             'p-2 rounded-md transition-colors shrink-0',
             showSettings
-              ? 'bg-accent text-accent-foreground'
+              ? 'bg-primary/10 text-primary'
               : 'text-muted-foreground hover:text-foreground hover:bg-muted',
           ].join(' ')}
         >
-          <Settings size={16} />
+          <Settings size={15} />
         </button>
       </header>
 
-      {/* Main content */}
+      {/* Main */}
       <main className="flex flex-1 overflow-hidden">
         {showSettings ? (
           <SettingsPanel onClose={() => setShowSettings(false)} />
@@ -194,10 +205,10 @@ function App() {
             items={items}
             selectedId={selectedId}
             isLoading={isLoading}
-            onCopy={handleCopy}
-            onDelete={handleDelete}
-            onTogglePin={handleTogglePin}
-            onLoadMore={handleLoadMore}
+            onCopy={onCopy}
+            onDelete={onDelete}
+            onTogglePin={onTogglePin}
+            onLoadMore={onLoadMore}
           />
         )}
       </main>

@@ -5,9 +5,10 @@ import { Search, X } from 'lucide-react'
 interface SearchBarProps {
   onSearch: (query: string) => void
   isSearching?: boolean
+  placeholder?: string
 }
 
-export function SearchBar({ onSearch, isSearching = false }: SearchBarProps) {
+export function SearchBar({ onSearch, isSearching = false, placeholder = 'Search…' }: SearchBarProps) {
   const [value, setValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -52,8 +53,8 @@ export function SearchBar({ onSearch, isSearching = false }: SearchBarProps) {
         type="text"
         value={value}
         onChange={handleChange}
-        placeholder="Search clipboard history…"
-        aria-label="Search clipboard history"
+        placeholder={placeholder}
+        aria-label={placeholder}
         className={[
           'w-full h-9 pl-9 pr-8 rounded-md text-sm',
           'bg-muted text-foreground placeholder:text-muted-foreground',

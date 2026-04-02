@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { ClipboardItem } from './ClipboardItem'
 import type { ClipboardItem as ClipboardItemType } from '../types/clipboard'
 import { Loader2 } from 'lucide-react'
+import { useTranslation } from '../lib/i18n'
 
 interface ClipboardListProps {
   items: ClipboardItemType[]
@@ -34,6 +35,7 @@ export function ClipboardList({
   })
 
   // Intersection observer to trigger infinite scroll at bottom sentinel
+  const t = useTranslation()
   const handleLoadMore = useCallback(onLoadMore, [onLoadMore])
   useEffect(() => {
     const sentinel = loadMoreRef.current
@@ -54,7 +56,7 @@ export function ClipboardList({
     return (
       <div className="flex flex-col items-center justify-center flex-1 gap-2 text-muted-foreground">
         <Loader2 size={20} className="animate-spin" />
-        <span className="text-sm">Loading…</span>
+        <span className="text-sm">{t('loading')}</span>
       </div>
     )
   }
@@ -62,7 +64,7 @@ export function ClipboardList({
   if (!isLoading && items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center flex-1 gap-2 text-muted-foreground">
-        <span className="text-sm">No clipboard history</span>
+        <span className="text-sm">{t('no_history')}</span>
       </div>
     )
   }
@@ -74,7 +76,6 @@ export function ClipboardList({
     <div
       ref={scrollRef}
       className="flex-1 overflow-y-auto px-2 py-1 scrollbar-thin"
-      style={{ contain: 'strict' }}
     >
       {/* Virtual scroll container */}
       <div style={{ height: totalSize, width: '100%', position: 'relative' }}>
