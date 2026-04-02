@@ -65,15 +65,21 @@
 
 ## Cài đặt
 
-### Windows
+### Windows (Khuyến nghị: dùng Installer)
 
-1. Tải file `clipboard-pro.exe` từ trang [Releases](../../releases)
-2. Chạy file — không cần cài đặt
-3. App sẽ xuất hiện ở khay hệ thống (system tray)
+**Cách 1 — Installer (khuyến nghị):**
+1. Tải `clipboard-pro-amd64-installer.exe` từ [Releases](../../releases)
+2. Chạy installer → cài vào Program Files, tạo shortcut Desktop + Start Menu
+3. Tự động cài WebView2 runtime nếu chưa có
+
+**Cách 2 — Portable:**
+1. Tải `clipboard-pro.exe` từ [Releases](../../releases)
+2. Chạy trực tiếp — không cần cài đặt
+3. Lưu ý: Windows SmartScreen có thể cảnh báo, chọn "More info" → "Run anyway"
 
 ### macOS
 
-1. Tải file `clipboard-pro-macos-amd64.zip` từ [Releases](../../releases)
+1. Tải file `clipboard-pro-macos-arm64.zip` từ [Releases](../../releases)
 2. Giải nén, kéo `clipboard-pro.app` vào thư mục `/Applications`
 3. Lần đầu mở: Click chuột phải → **Open** (để bypass Gatekeeper)
 
