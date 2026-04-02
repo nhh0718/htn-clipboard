@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Settings, Pin, PinOff, BarChart3, ClipboardList as ClipboardIcon } from 'lucide-react'
+import { Settings, Pin, PinOff, BarChart3, ClipboardList as ClipboardIcon, Download, X, Loader2 } from 'lucide-react'
 import './App.css'
 import { SearchBar } from './components/SearchBar'
 import { ClipboardList } from './components/ClipboardList'
 import { SettingsPanel } from './components/SettingsPanel'
 import { AnalyticsDashboard } from './components/AnalyticsDashboard'
-import type { ClipboardItem, SearchFilter } from './types/clipboard'
-import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff, inWails, SetAlwaysOnTop, IsAlwaysOnTop } from './services/wails-bridge'
+import type { ClipboardItem, SearchFilter, UpdateInfo } from './types/clipboard'
+import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff, inWails, SetAlwaysOnTop, IsAlwaysOnTop, DownloadAndInstallUpdate } from './services/wails-bridge'
 import { LangContext, LangSetterContext, useTranslation, type Lang } from './lib/i18n'
 import { ThemeContext, useThemeState } from './lib/theme'
 import { BrowserTokenPrompt } from './components/BrowserTokenPrompt'
@@ -258,6 +258,9 @@ interface ShellProps {
 function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filter, onCopy, onDelete, onTogglePin, onLoadMore, onSearch }: ShellProps) {
   const t = useTranslation()
   const [pinned, setPinned] = useState(false)
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [updateDismissed, setUpdateDismissed] = useState(false)
+  const [downloading, setDownloading] = useState(false)
   const isNative = inWails()
 
   // Load initial always-on-top state
@@ -265,14 +268,70 @@ function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filte
     if (isNative) IsAlwaysOnTop().then(setPinned).catch(() => {})
   }, [isNative])
 
+  // Listen for background update check event
+  useEffect(() => {
+    EventsOn('update:available', (...args: unknown[]) => {
+      setUpdateInfo(args[0] as UpdateInfo)
+      setUpdateDismissed(false)
+    })
+    EventsOn('update:downloading', (...args: unknown[]) => {
+      setDownloading(args[0] as boolean)
+    })
+    return () => {
+      EventsOff('update:available')
+      EventsOff('update:downloading')
+    }
+  }, [])
+
   function handlePinWindow() {
     const next = !pinned
     setPinned(next)
     SetAlwaysOnTop(next)
   }
 
+  async function handleInstallUpdate() {
+    if (!updateInfo?.downloadURL) return
+    setDownloading(true)
+    try {
+      await DownloadAndInstallUpdate(updateInfo.downloadURL)
+    } catch (err) {
+      console.error('[update] install error:', err)
+      setDownloading(false)
+    }
+  }
+
+  const showUpdateBanner = updateInfo?.available && !updateDismissed
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+      {/* Update notification banner */}
+      {showUpdateBanner && (
+        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-xs shrink-0">
+          <Download size={13} />
+          <span className="flex-1">
+            {t('update_banner')} <strong>{updateInfo.latest}</strong>
+          </span>
+          {downloading ? (
+            <span className="flex items-center gap-1 text-[10px] opacity-80">
+              <Loader2 size={12} className="animate-spin" /> {t('update_downloading')}
+            </span>
+          ) : (
+            <button
+              onClick={handleInstallUpdate}
+              className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 font-medium transition-colors"
+            >
+              {t('update_install')}
+            </button>
+          )}
+          <button
+            onClick={() => setUpdateDismissed(true)}
+            className="p-0.5 rounded hover:bg-white/20 transition-colors"
+          >
+            <X size={12} />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex items-center gap-2 px-3 py-2 border-b border-border shrink-0">
         <SearchBar

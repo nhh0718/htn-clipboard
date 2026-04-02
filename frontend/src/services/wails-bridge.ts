@@ -58,6 +58,10 @@ export function CheckForUpdate(): Promise<UpdateInfo> {
   return inWails() ? goApp().CheckForUpdate() : appStubs.CheckForUpdate()
 }
 
+export function DownloadAndInstallUpdate(downloadURL: string): Promise<void> {
+  return inWails() ? goApp().DownloadAndInstallUpdate(downloadURL) : Promise.resolve()
+}
+
 export function GetAnalytics(): Promise<AnalyticsData> {
   return inWails() ? goApp().GetAnalytics() : appStubs.GetAnalytics()
 }

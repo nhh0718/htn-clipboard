@@ -72,6 +72,9 @@ const translations = {
     update_available: 'New version available',
     up_to_date: 'You are up to date!',
     download: 'Download',
+    update_banner: 'New version available:',
+    update_install: 'Update Now',
+    update_downloading: 'Downloading…',
     // Analytics
     tab_history: 'History',
     analytics_title: 'Analytics',
@@ -155,6 +158,9 @@ const translations = {
     update_available: 'Có phiên bản mới',
     up_to_date: 'Bạn đang dùng phiên bản mới nhất!',
     download: 'Tải về',
+    update_banner: 'Có phiên bản mới:',
+    update_install: 'Cập nhật ngay',
+    update_downloading: 'Đang tải…',
     // Analytics
     tab_history: 'Lịch sử',
     analytics_title: 'Thống kê',
