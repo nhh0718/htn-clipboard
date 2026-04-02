@@ -18,11 +18,16 @@ import (
 	goclip "golang.design/x/clipboard"
 )
 
+// OnDataChange is called when the HTTP API modifies data (pin/delete).
+// The app sets this to emit Wails events so the desktop UI stays in sync.
+type OnDataChange func(event string)
+
 // Server is the local HTTP API server bound to 127.0.0.1 only.
 type Server struct {
-	repo   *storage.Repository
-	config *config.Config
-	server *http.Server
+	repo       *storage.Repository
+	config     *config.Config
+	server     *http.Server
+	OnChange   OnDataChange
 }
 
 // NewServer creates a Server with the given repository, config, and optional
@@ -279,6 +284,7 @@ func (s *Server) handleDelete(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
+	s.notify("delete")
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
@@ -298,7 +304,15 @@ func (s *Server) handlePin(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "internal error"})
 		return
 	}
+	s.notify("pin")
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// notify fires the OnChange callback if set.
+func (s *Server) notify(event string) {
+	if s.OnChange != nil {
+		s.OnChange(event)
+	}
 }
 
 // --- Helpers ---

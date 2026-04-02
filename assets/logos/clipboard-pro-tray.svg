@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="b" x1="12" y1="8" x2="52" y2="56" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#6aa6ff"/>
+      <stop offset="100%" stop-color="#4f8ff7"/>
+    </linearGradient>
+  </defs>
+  <!-- Simplified clipboard silhouette for tray/small sizes -->
+  <!-- Back layer -->
+  <rect x="24" y="14" width="28" height="38" rx="4" fill="#4f8ff7" opacity="0.3"/>
+  <!-- Front clipboard -->
+  <rect x="14" y="10" width="28" height="42" rx="5" fill="url(#b)"/>
+  <!-- Clip -->
+  <rect x="22" y="5" width="12" height="10" rx="3" fill="url(#b)" stroke="#fff" stroke-width="2"/>
+  <!-- Lines -->
+  <rect x="20" y="26" width="16" height="3" rx="1.5" fill="#fff" opacity="0.9"/>
+  <rect x="20" y="33" width="12" height="2" rx="1" fill="#fff" opacity="0.5"/>
+  <rect x="20" y="39" width="14" height="2" rx="1" fill="#fff" opacity="0.4"/>
+  <!-- Copy indicator -->
+  <g transform="translate(38, 38)">
+    <rect x="0" y="4" width="14" height="14" rx="3" fill="none" stroke="#fff" stroke-width="1.5" opacity="0.5"/>
+    <rect x="4" y="0" width="14" height="14" rx="3" fill="#fff" opacity="0.9"/>
+    <path d="M8 4.5 v5 M5.5 7 h5" stroke="#4f8ff7" stroke-width="1.8" stroke-linecap="round"/>
+  </g>
+</svg>

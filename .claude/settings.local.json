@@ -46,7 +46,9 @@
       "Bash(wails dev:*)",
       "Bash(go mod:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(~/.claude/skills/.venv/Scripts/python.exe ~/.claude/skills/logo-design/scripts/generate.py --brand \"Clipboard Pro\" --style minimalist --industry tech --prompt \"A minimalist app icon logo for ''Clipboard Pro'', a clipboard manager app. The icon features a stylized clipboard shape with overlapping layers suggesting copy/paste and history. Use a deep blue accent color \\(#4f8ff7\\) on a white background. The design should be clean, geometric, modern — suitable for desktop app icon, system tray, and Chrome extension. No text in the icon, just the symbol. Professional tech utility aesthetic.\" --output \"E:/Code-Fun/clipboard-pro/assets/logos\")",
+      "Bash(~/.claude/skills/.venv/Scripts/python.exe ~/.claude/skills/logo-design/scripts/generate.py --brand \"Clipboard Pro\" --style minimalist --industry tech --prompt \"A minimalist app icon logo for Clipboard Pro, a clipboard manager utility. The icon shows a stylized clipboard with overlapping layers suggesting copy paste history. Deep blue accent color #4f8ff7 on white background. Clean geometric modern design suitable for desktop app icon and Chrome extension. No text, just the icon symbol. Professional tech utility look.\" --output \"E:/Code-Fun/clipboard-pro/assets/logos\")"
     ]
   }
 }

@@ -14,8 +14,12 @@ export function GetHealth():Promise<main.HealthStatus>;
 
 export function GetHistory(arg1:number,arg2:number):Promise<Array<storage.ClipboardItem>>;
 
+export function IsAlwaysOnTop():Promise<boolean>;
+
 export function SaveConfig(arg1:config.Config):Promise<void>;
 
 export function Search(arg1:storage.SearchFilter):Promise<Array<storage.ClipboardItem>>;
+
+export function SetAlwaysOnTop(arg1:boolean):Promise<void>;
 
 export function TogglePin(arg1:number):Promise<void>;

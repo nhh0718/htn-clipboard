@@ -22,12 +22,20 @@ export function GetHistory(arg1, arg2) {
   return window['go']['main']['App']['GetHistory'](arg1, arg2);
 }
 
+export function IsAlwaysOnTop() {
+  return window['go']['main']['App']['IsAlwaysOnTop']();
+}
+
 export function SaveConfig(arg1) {
   return window['go']['main']['App']['SaveConfig'](arg1);
 }
 
 export function Search(arg1) {
   return window['go']['main']['App']['Search'](arg1);
+}
+
+export function SetAlwaysOnTop(arg1) {
+  return window['go']['main']['App']['SetAlwaysOnTop'](arg1);
 }
 
 export function TogglePin(arg1) {

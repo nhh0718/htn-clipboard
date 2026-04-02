@@ -1,9 +1,13 @@
-import { mkdirSync, copyFileSync, existsSync, writeFileSync } from 'fs'
+import { mkdirSync, copyFileSync, existsSync } from 'fs'
 import { dirname } from 'path'
 
 const copies = [
   ['manifest.json', 'dist/manifest.json'],
   ['popup/popup.html', 'dist/popup/popup.html'],
+  ['popup/popup.js', 'dist/popup/popup.js'],
+  ['icons/icon16.png', 'dist/icons/icon16.png'],
+  ['icons/icon48.png', 'dist/icons/icon48.png'],
+  ['icons/icon128.png', 'dist/icons/icon128.png'],
 ]
 
 for (const [src, dst] of copies) {
@@ -14,18 +18,6 @@ for (const [src, dst] of copies) {
   } else {
     console.warn(`Warning: source not found: ${src}`)
   }
-}
-
-// Create placeholder icons — minimal 1x1 transparent PNG
-mkdirSync('dist/icons', { recursive: true })
-const PNG1x1 = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-  'base64'
-)
-for (const size of [16, 48, 128]) {
-  const dest = `dist/icons/icon${size}.png`
-  writeFileSync(dest, PNG1x1)
-  console.log(`Created placeholder icon: ${dest}`)
 }
 
 console.log('Build copy complete.')

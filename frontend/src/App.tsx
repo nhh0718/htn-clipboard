@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Settings } from 'lucide-react'
+import { Settings, Pin, PinOff } from 'lucide-react'
 import './App.css'
 import { SearchBar } from './components/SearchBar'
 import { ClipboardList } from './components/ClipboardList'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { ClipboardItem, SearchFilter } from './types/clipboard'
-import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff, inWails } from './services/wails-bridge'
+import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff, inWails, SetAlwaysOnTop, IsAlwaysOnTop } from './services/wails-bridge'
 import { LangContext, LangSetterContext, useTranslation, type Lang } from './lib/i18n'
 import { ThemeContext, useThemeState } from './lib/theme'
 import { BrowserTokenPrompt } from './components/BrowserTokenPrompt'
@@ -77,8 +77,16 @@ function App() {
       }
     }
     EventsOn('clipboard:new', handler as (...data: unknown[]) => void)
-    return () => EventsOff('clipboard:new')
-  }, [])
+
+    // Listen for data changes from HTTP API (web/extension did pin/delete)
+    const refreshHandler = () => { loadHistory(true) }
+    EventsOn('data:changed', refreshHandler as (...data: unknown[]) => void)
+
+    return () => {
+      EventsOff('clipboard:new')
+      EventsOff('data:changed')
+    }
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Browser polling (web dashboard) ────────────────────────────────────────
 
@@ -246,6 +254,19 @@ interface ShellProps {
 
 function AppShell({ showSettings, setShowSettings, items, selectedId, isLoading, filter, onCopy, onDelete, onTogglePin, onLoadMore, onSearch }: ShellProps) {
   const t = useTranslation()
+  const [pinned, setPinned] = useState(false)
+  const isNative = inWails()
+
+  // Load initial always-on-top state
+  useEffect(() => {
+    if (isNative) IsAlwaysOnTop().then(setPinned).catch(() => {})
+  }, [isNative])
+
+  function handlePinWindow() {
+    const next = !pinned
+    setPinned(next)
+    SetAlwaysOnTop(next)
+  }
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
@@ -257,6 +278,22 @@ function AppShell({ showSettings, setShowSettings, items, selectedId, isLoading,
           isSearching={isLoading}
           placeholder={t('search_placeholder')}
         />
+        {/* Pin window button — only in native Wails app */}
+        {isNative && (
+          <button
+            onClick={handlePinWindow}
+            aria-label={pinned ? t('unpin_window') : t('pin_window')}
+            title={pinned ? t('unpin_window') : t('pin_window')}
+            className={[
+              'p-2 rounded-md transition-colors shrink-0',
+              pinned
+                ? 'bg-primary/10 text-primary'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+            ].join(' ')}
+          >
+            {pinned ? <PinOff size={15} /> : <Pin size={15} />}
+          </button>
+        )}
         <button
           onClick={() => setShowSettings(!showSettings)}
           aria-label={t('settings')}

@@ -50,6 +50,14 @@ export function GetHealth(): Promise<HealthStatus> {
   return inWails() ? goApp().GetHealth() : appStubs.GetHealth()
 }
 
+export function SetAlwaysOnTop(on: boolean): Promise<void> {
+  return inWails() ? goApp().SetAlwaysOnTop(on) : Promise.resolve()
+}
+
+export function IsAlwaysOnTop(): Promise<boolean> {
+  return inWails() ? goApp().IsAlwaysOnTop() : Promise.resolve(false)
+}
+
 // ── Runtime bindings ──────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -40,11 +40,11 @@ export async function CopyItem(id: number): Promise<void> {
 }
 
 export async function DeleteItem(id: number): Promise<void> {
-  console.warn('[browser] DeleteItem not available via HTTP API')
+  await apiFetch('/api/v1/delete', { method: 'POST', body: JSON.stringify({ id }) })
 }
 
 export async function TogglePin(id: number): Promise<void> {
-  console.warn('[browser] TogglePin not available via HTTP API')
+  await apiFetch('/api/v1/pin', { method: 'POST', body: JSON.stringify({ id }) })
 }
 
 export async function GetConfig(): Promise<AppConfig> {

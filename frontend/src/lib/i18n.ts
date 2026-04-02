@@ -9,6 +9,8 @@ const translations = {
   en: {
     search_placeholder: 'Search clipboard history…',
     settings: 'Settings',
+    pin_window: 'Pin on top',
+    unpin_window: 'Unpin',
     cancel: 'Cancel',
     save: 'Save',
     saving: 'Saving…',
@@ -68,6 +70,8 @@ const translations = {
   vi: {
     search_placeholder: 'Tìm kiếm clipboard…',
     settings: 'Cài đặt',
+    pin_window: 'Ghim lên trên',
+    unpin_window: 'Bỏ ghim',
     cancel: 'Huỷ',
     save: 'Lưu',
     saving: 'Đang lưu…',

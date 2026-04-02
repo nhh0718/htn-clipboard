@@ -33,6 +33,7 @@ type App struct {
 	cleanupCancel context.CancelFunc
 	startedAt     time.Time
 	assets        *embed.FS // embedded frontend/dist, shared with HTTP server
+	alwaysOnTop   bool
 }
 
 // NewApp creates the App instance for Wails.
@@ -67,6 +68,10 @@ func (a *App) startup(ctx context.Context) {
 
 	// --- HTTP API server ---
 	a.server = server.NewServer(a.repo, a.config, a.assets)
+	a.server.OnChange = func(event string) {
+		// Notify the Wails frontend to refresh when the HTTP API modifies data
+		runtime.EventsEmit(ctx, "data:changed", event)
+	}
 	a.server.Start()
 
 	// --- Clipboard monitor ---
@@ -288,4 +293,15 @@ func (a *App) GetHealth() HealthStatus {
 		Monitor:   a.monitor != nil,
 		AutoStart: autostart.IsEnabled(),
 	}
+}
+
+// SetAlwaysOnTop toggles the window always-on-top (pin/widget mode).
+func (a *App) SetAlwaysOnTop(on bool) {
+	a.alwaysOnTop = on
+	runtime.WindowSetAlwaysOnTop(a.ctx, on)
+}
+
+// IsAlwaysOnTop returns current always-on-top state.
+func (a *App) IsAlwaysOnTop() bool {
+	return a.alwaysOnTop
 }

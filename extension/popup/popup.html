@@ -17,7 +17,6 @@ iframe {
   height: 100%;
   border: none;
 }
-/* Offline fallback */
 #offline {
   display: none;
   flex-direction: column;
@@ -48,22 +47,8 @@ iframe {
   <div id="offline">
     <p>Cannot connect to Clipboard Pro</p>
     <p style="font-size:11px;opacity:.7">Make sure the desktop app is running</p>
-    <button onclick="location.reload()">Retry</button>
+    <button id="retry-btn">Retry</button>
   </div>
-  <script>
-    const frame = document.getElementById('frame')
-    const offline = document.getElementById('offline')
-    // Check if backend is reachable
-    fetch('http://127.0.0.1:27843/api/v1/ping', { signal: AbortSignal.timeout(3000) })
-      .then(r => {
-        if (!r.ok) throw new Error()
-        frame.style.display = 'block'
-        offline.classList.remove('show')
-      })
-      .catch(() => {
-        frame.style.display = 'none'
-        offline.classList.add('show')
-      })
-  </script>
+  <script src="popup.js"></script>
 </body>
 </html>
