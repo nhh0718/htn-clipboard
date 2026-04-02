@@ -38,6 +38,20 @@ export interface UpdateInfo {
   releaseNote: string
 }
 
+// Analytics dashboard data from aggregate queries
+export interface AnalyticsData {
+  totalItems: number
+  totalText: number
+  totalImages: number
+  totalPinned: number
+  todayCount: number
+  weekCount: number
+  dailyCounts: { date: string; count: number }[]
+  hourlyCounts: { hour: number; count: number }[]
+  topSourceApps: { app: string; count: number }[]
+  typeDistribution: { type: string; count: number }[]
+}
+
 // Application configuration
 export interface AppConfig {
   port: number

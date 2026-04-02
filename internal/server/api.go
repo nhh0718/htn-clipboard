@@ -67,6 +67,7 @@ func NewServer(repo *storage.Repository, cfg *config.Config, assets *embed.FS) *
 	mux.HandleFunc("/api/v1/paste", s.authMiddleware(s.handlePaste))
 	mux.HandleFunc("/api/v1/delete", s.authMiddleware(s.handleDelete))
 	mux.HandleFunc("/api/v1/pin", s.authMiddleware(s.handlePin))
+	mux.HandleFunc("/api/v1/analytics", s.authMiddleware(s.handleAnalytics))
 	// Image files served without auth — localhost-only and no sensitive data
 	mux.HandleFunc("/api/v1/image/", s.handleImage)
 	s.server = &http.Server{
@@ -316,6 +317,16 @@ func (s *Server) notify(event string) {
 }
 
 // --- Helpers ---
+
+// handleAnalytics returns aggregate clipboard usage statistics.
+func (s *Server) handleAnalytics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	data := s.repo.GetAnalytics()
+	writeJSON(w, http.StatusOK, data)
+}
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")

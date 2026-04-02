@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Settings, Pin, PinOff } from 'lucide-react'
+import { Settings, Pin, PinOff, BarChart3, ClipboardList as ClipboardIcon } from 'lucide-react'
 import './App.css'
 import { SearchBar } from './components/SearchBar'
 import { ClipboardList } from './components/ClipboardList'
 import { SettingsPanel } from './components/SettingsPanel'
+import { AnalyticsDashboard } from './components/AnalyticsDashboard'
 import type { ClipboardItem, SearchFilter } from './types/clipboard'
 import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff, inWails, SetAlwaysOnTop, IsAlwaysOnTop } from './services/wails-bridge'
 import { LangContext, LangSetterContext, useTranslation, type Lang } from './lib/i18n'
@@ -30,7 +31,7 @@ function App() {
   const [items, setItems] = useState<ClipboardItem[]>([])
   const [filter, setFilter] = useState<SearchFilter>({ query: '', itemType: '', timeRange: '' })
   const [isLoading, setIsLoading] = useState(true)
-  const [showSettings, setShowSettings] = useState(false)
+  const [activeTab, setActiveTab] = useState<'history' | 'analytics' | 'settings'>('history')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(true)
@@ -182,7 +183,7 @@ function App() {
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if (showSettings) return
+      if (activeTab !== 'history') return
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault()
         setSelectedId(cur => {
@@ -197,7 +198,7 @@ function App() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [items, selectedId, showSettings, handleCopy])
+  }, [items, selectedId, activeTab, handleCopy])
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -218,8 +219,8 @@ function App() {
       <LangContext.Provider value={lang}>
         <LangSetterContext.Provider value={{ setLang }}>
           <AppShell
-            showSettings={showSettings}
-            setShowSettings={setShowSettings}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
             items={items}
             selectedId={selectedId}
             isLoading={isLoading}
@@ -238,9 +239,11 @@ function App() {
 
 // ── AppShell reads translation from context ───────────────────────────────────
 
+type TabType = 'history' | 'analytics' | 'settings'
+
 interface ShellProps {
-  showSettings: boolean
-  setShowSettings: (v: boolean) => void
+  activeTab: TabType
+  setActiveTab: (v: TabType) => void
   items: ClipboardItem[]
   selectedId: number | null
   isLoading: boolean
@@ -252,7 +255,7 @@ interface ShellProps {
   onSearch: (f: SearchFilter) => void
 }
 
-function AppShell({ showSettings, setShowSettings, items, selectedId, isLoading, filter, onCopy, onDelete, onTogglePin, onLoadMore, onSearch }: ShellProps) {
+function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filter, onCopy, onDelete, onTogglePin, onLoadMore, onSearch }: ShellProps) {
   const t = useTranslation()
   const [pinned, setPinned] = useState(false)
   const isNative = inWails()
@@ -294,25 +297,27 @@ function AppShell({ showSettings, setShowSettings, items, selectedId, isLoading,
             {pinned ? <PinOff size={15} /> : <Pin size={15} />}
           </button>
         )}
-        <button
-          onClick={() => setShowSettings(!showSettings)}
-          aria-label={t('settings')}
-          className={[
-            'p-2 rounded-md transition-colors shrink-0',
-            showSettings
-              ? 'bg-primary/10 text-primary'
-              : 'text-muted-foreground hover:text-foreground hover:bg-muted',
-          ].join(' ')}
-        >
+        {/* Tab buttons */}
+        <TabBtn active={activeTab === 'history'} onClick={() => setActiveTab('history')} title={t('tab_history')}>
+          <ClipboardIcon size={15} />
+        </TabBtn>
+        <TabBtn active={activeTab === 'analytics'} onClick={() => setActiveTab('analytics')} title={t('analytics_title')}>
+          <BarChart3 size={15} />
+        </TabBtn>
+        <TabBtn active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} title={t('settings')}>
           <Settings size={15} />
-        </button>
+        </TabBtn>
       </header>
 
       {/* Main */}
       <main className="flex flex-1 overflow-hidden">
-        {showSettings ? (
-          <SettingsPanel onClose={() => setShowSettings(false)} />
-        ) : (
+        {activeTab === 'settings' && (
+          <SettingsPanel onClose={() => setActiveTab('history')} />
+        )}
+        {activeTab === 'analytics' && (
+          <AnalyticsDashboard />
+        )}
+        {activeTab === 'history' && (
           <ClipboardList
             items={items}
             selectedId={selectedId}
@@ -325,6 +330,24 @@ function AppShell({ showSettings, setShowSettings, items, selectedId, isLoading,
         )}
       </main>
     </div>
+  )
+}
+
+function TabBtn({ active, onClick, title, children }: { active: boolean; onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={title}
+      title={title}
+      className={[
+        'p-2 rounded-md transition-colors shrink-0',
+        active
+          ? 'bg-primary/10 text-primary'
+          : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+      ].join(' ')}
+    >
+      {children}
+    </button>
   )
 }
 

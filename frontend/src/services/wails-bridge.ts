@@ -3,7 +3,7 @@
 // guarantees to be available before any app JS executes.
 // Stubs are used ONLY in plain-browser mode (no window.go present).
 
-import type { ClipboardItem, AppConfig, SearchFilter, HealthStatus, UpdateInfo } from '../types/clipboard'
+import type { ClipboardItem, AppConfig, SearchFilter, HealthStatus, UpdateInfo, AnalyticsData } from '../types/clipboard'
 import * as appStubs from '../wailsjs-stubs/go-app-stubs'
 import * as rtStubs from '../wailsjs-stubs/runtime-stubs'
 
@@ -56,6 +56,10 @@ export function GetVersion(): Promise<string> {
 
 export function CheckForUpdate(): Promise<UpdateInfo> {
   return inWails() ? goApp().CheckForUpdate() : appStubs.CheckForUpdate()
+}
+
+export function GetAnalytics(): Promise<AnalyticsData> {
+  return inWails() ? goApp().GetAnalytics() : appStubs.GetAnalytics()
 }
 
 export function SetAlwaysOnTop(on: boolean): Promise<void> {

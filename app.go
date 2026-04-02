@@ -270,3 +270,8 @@ func (a *App) SetAlwaysOnTop(on bool) {
 func (a *App) IsAlwaysOnTop() bool {
 	return a.alwaysOnTop
 }
+
+// GetAnalytics returns aggregate clipboard usage statistics for the dashboard.
+func (a *App) GetAnalytics() storage.AnalyticsData {
+	return a.repo.GetAnalytics()
+}
