@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -23,11 +25,37 @@ type Server struct {
 	server *http.Server
 }
 
-// NewServer creates a Server with the given repository and config.
-func NewServer(repo *storage.Repository, cfg *config.Config) *Server {
+// NewServer creates a Server with the given repository, config, and optional
+// embedded frontend assets (the same embed.FS used by Wails).
+// Pass nil for assets to skip serving the frontend.
+func NewServer(repo *storage.Repository, cfg *config.Config, assets *embed.FS) *Server {
 	s := &Server{repo: repo, config: cfg}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", s.handleDashboard)
+
+	// Serve embedded frontend at / — same React app as the Wails window.
+	if assets != nil {
+		distFS, err := fs.Sub(*assets, "frontend/dist")
+		if err == nil {
+			fileServer := http.FileServer(http.FS(distFS))
+			mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+				// Try to serve the file. If not found, serve index.html (SPA fallback).
+				path := r.URL.Path
+				if path == "/" {
+					path = "/index.html"
+				}
+				// Check if file exists in embedded FS
+				if f, err := distFS.Open(strings.TrimPrefix(path, "/")); err == nil {
+					f.Close()
+					fileServer.ServeHTTP(w, r)
+					return
+				}
+				// SPA fallback — serve index.html for any unmatched route
+				r.URL.Path = "/"
+				fileServer.ServeHTTP(w, r)
+			})
+		}
+	}
+
 	mux.HandleFunc("/api/v1/ping", s.handlePing)
 	mux.HandleFunc("/api/v1/history", s.authMiddleware(s.handleHistory))
 	mux.HandleFunc("/api/v1/search", s.authMiddleware(s.handleSearch))
@@ -93,15 +121,6 @@ func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // --- Handlers ---
-
-func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(dashboardHTML))
-}
 
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": "1.0.0"})

@@ -7,7 +7,7 @@ import type { ClipboardItem, AppConfig, SearchFilter, HealthStatus } from '../ty
 import * as appStubs from '../wailsjs-stubs/go-app-stubs'
 import * as rtStubs from '../wailsjs-stubs/runtime-stubs'
 
-const inWails = (): boolean =>
+export const inWails = (): boolean =>
   typeof window !== 'undefined' &&
   typeof (window as unknown as Record<string, unknown>)['go'] !== 'undefined'
 

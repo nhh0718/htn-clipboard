@@ -5,15 +5,21 @@ import { SearchBar } from './components/SearchBar'
 import { ClipboardList } from './components/ClipboardList'
 import { SettingsPanel } from './components/SettingsPanel'
 import type { ClipboardItem, SearchFilter } from './types/clipboard'
-import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff } from './services/wails-bridge'
+import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff, inWails } from './services/wails-bridge'
 import { LangContext, LangSetterContext, useTranslation, type Lang } from './lib/i18n'
 import { ThemeContext, useThemeState } from './lib/theme'
+import { BrowserTokenPrompt } from './components/BrowserTokenPrompt'
 
 const PAGE_SIZE = 50
 
 function App() {
   const { theme, setTheme } = useThemeState()
   const [lang, setLang] = useState<Lang>(() => (localStorage.getItem('clipboard-pro-lang') as Lang) ?? 'en')
+
+  // Browser mode: require auth token before showing the app
+  const [browserAuthed, setBrowserAuthed] = useState(() =>
+    inWails() || !!localStorage.getItem('clipboard-pro-token')
+  )
 
   // Persist lang to localStorage
   useEffect(() => {
@@ -149,6 +155,18 @@ function App() {
   }, [items, selectedId, showSettings, handleCopy])
 
   // ── Render ──────────────────────────────────────────────────────────────────
+
+  if (!browserAuthed) {
+    return (
+      <ThemeContext.Provider value={{ theme, setTheme }}>
+        <LangContext.Provider value={lang}>
+          <LangSetterContext.Provider value={{ setLang }}>
+            <BrowserTokenPrompt onConnect={() => setBrowserAuthed(true)} />
+          </LangSetterContext.Provider>
+        </LangContext.Provider>
+      </ThemeContext.Provider>
+    )
+  }
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>

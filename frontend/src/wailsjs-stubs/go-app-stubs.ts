@@ -1,119 +1,76 @@
-// Stub implementations for Wails Go bindings.
-// Used when the real wailsjs/go/main/App bindings are not yet generated,
-// or when running outside the Wails runtime (e.g. browser dev mode).
+// HTTP API fallback — used when running in a browser (not inside Wails WebView).
+// Calls the same Go backend via the local HTTP API on port 27843.
 
 import type { ClipboardItem, AppConfig, SearchFilter, HealthStatus } from '../types/clipboard'
 
-const MOCK_ITEMS: ClipboardItem[] = [
-  {
-    id: 1,
-    type: 'text',
-    content: 'Hello from clipboard! This is a sample text entry to demonstrate the UI.',
-    filePath: '',
-    contentHash: 'hash1',
-    sourceApp: 'VSCode',
-    isPinned: true,
-    createdAt: new Date(Date.now() - 60000).toISOString(),
-  },
-  {
-    id: 2,
-    type: 'text',
-    content: 'npm install @tanstack/react-virtual lucide-react',
-    filePath: '',
-    contentHash: 'hash2',
-    sourceApp: 'Terminal',
-    isPinned: false,
-    createdAt: new Date(Date.now() - 300000).toISOString(),
-  },
-  {
-    id: 3,
-    type: 'text',
-    content: 'https://github.com/wailsapp/wails',
-    filePath: '',
-    contentHash: 'hash3',
-    sourceApp: 'Chrome',
-    isPinned: false,
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: 4,
-    type: 'text',
-    content: `const handler = async (req, res) => {\n  const data = await fetchData()\n  res.json(data)\n}`,
-    filePath: '',
-    contentHash: 'hash4',
-    sourceApp: 'VSCode',
-    isPinned: false,
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: 5,
-    type: 'image',
-    content: '',
-    filePath: 'screenshots/screenshot-001.png',
-    contentHash: 'hash5',
-    sourceApp: 'Snipping Tool',
-    isPinned: false,
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-]
+const API_BASE = `http://127.0.0.1:27843`
 
-const MOCK_CONFIG: AppConfig = {
-  port: 54321,
-  authToken: 'tok_abc123xyz789',
-  retentionDays: 30,
-  maxItems: 500,
-  hotkey: 'Ctrl+Shift+V',
-  dataDir: 'C:\\Users\\User\\AppData\\Local\\ClipboardPro',
-  autoStart: true,
+function getToken(): string {
+  return localStorage.getItem('clipboard-pro-token') ?? ''
 }
 
-export function GetHistory(limit: number, offset: number): Promise<ClipboardItem[]> {
-  const slice = MOCK_ITEMS.slice(offset, offset + limit)
-  return Promise.resolve(slice)
+function headers(): Record<string, string> {
+  return { Authorization: `Bearer ${getToken()}`, 'Content-Type': 'application/json' }
 }
 
-export function Search(filter: SearchFilter): Promise<ClipboardItem[]> {
-  const q = filter.query.toLowerCase()
-  let results = MOCK_ITEMS.filter(
-    (item) =>
-      item.content.toLowerCase().includes(q) ||
-      item.sourceApp.toLowerCase().includes(q)
-  )
-  if (filter.itemType) results = results.filter(i => i.type === filter.itemType)
-  return Promise.resolve(results)
+async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(`${API_BASE}${path}`, { ...init, headers: { ...headers(), ...init?.headers } })
+  if (!r.ok) throw new Error(`API ${r.status}`)
+  return r.json()
 }
 
-export function CopyItem(id: number): Promise<void> {
-  console.log('[stub] CopyItem', id)
-  return Promise.resolve()
+export async function GetHistory(limit: number, offset: number): Promise<ClipboardItem[]> {
+  const data = await apiFetch<{ items: ClipboardItem[] }>(`/api/v1/history?limit=${limit}&offset=${offset}`)
+  return data.items ?? []
 }
 
-export function DeleteItem(id: number): Promise<void> {
-  console.log('[stub] DeleteItem', id)
-  return Promise.resolve()
+export async function Search(filter: SearchFilter): Promise<ClipboardItem[]> {
+  const params = new URLSearchParams()
+  if (filter.query) params.set('q', filter.query)
+  if (filter.itemType) params.set('type', filter.itemType)
+  if (filter.timeRange) params.set('time', filter.timeRange)
+  params.set('limit', '100')
+  const data = await apiFetch<{ items: ClipboardItem[] }>(`/api/v1/search?${params}`)
+  return data.items ?? []
 }
 
-export function TogglePin(id: number): Promise<void> {
-  console.log('[stub] TogglePin', id)
-  return Promise.resolve()
+export async function CopyItem(id: number): Promise<void> {
+  await apiFetch(`/api/v1/paste`, { method: 'POST', body: JSON.stringify({ id }) })
 }
 
-export function GetConfig(): Promise<AppConfig> {
-  return Promise.resolve({ ...MOCK_CONFIG })
+export async function DeleteItem(id: number): Promise<void> {
+  console.warn('[browser] DeleteItem not available via HTTP API')
 }
 
-export function SaveConfig(config: AppConfig): Promise<void> {
-  console.log('[stub] SaveConfig', config)
-  return Promise.resolve()
+export async function TogglePin(id: number): Promise<void> {
+  console.warn('[browser] TogglePin not available via HTTP API')
 }
 
-export function GetHealth(): Promise<HealthStatus> {
-  return Promise.resolve({
-    status: 'running',
-    uptime: '1h23m45s',
-    dbItems: 42,
+export async function GetConfig(): Promise<AppConfig> {
+  // Config is not exposed via HTTP API — return sensible defaults
+  return {
+    port: 27843,
+    authToken: getToken(),
+    retentionDays: 30,
+    maxItems: 1000,
+    hotkey: 'Ctrl+Shift+V',
+    dataDir: '',
+    autoStart: false,
+  }
+}
+
+export async function SaveConfig(_config: AppConfig): Promise<void> {
+  console.warn('[browser] SaveConfig not available via HTTP API')
+}
+
+export async function GetHealth(): Promise<HealthStatus> {
+  const data = await apiFetch<{ status: string; version: string }>('/api/v1/ping')
+  return {
+    status: data.status === 'ok' ? 'running' : 'error',
+    uptime: '',
+    dbItems: 0,
     apiPort: 27843,
-    monitor: true,
-    autoStart: true,
-  })
+    monitor: data.status === 'ok',
+    autoStart: false,
+  }
 }

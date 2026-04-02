@@ -50,6 +50,12 @@ const translations = {
     health_inactive: 'Inactive',
     health_enabled: 'Enabled',
     health_disabled: 'Disabled',
+    // Browser mode
+    browser_token_desc: 'Enter your auth token to connect to the Clipboard Pro backend.',
+    browser_token_invalid: 'Invalid token — check Settings in the app.',
+    browser_token_offline: 'Cannot reach backend — is the app running?',
+    browser_connect: 'Connect',
+    browser_token_hint: 'Find your token in the app Settings → Auth Token.',
     // Filters
     filter: 'Filter',
     filter_all: 'All',
@@ -103,6 +109,12 @@ const translations = {
     health_inactive: 'Không hoạt động',
     health_enabled: 'Bật',
     health_disabled: 'Tắt',
+    // Browser mode
+    browser_token_desc: 'Nhập auth token để kết nối với Clipboard Pro.',
+    browser_token_invalid: 'Token không hợp lệ — kiểm tra trong Settings của app.',
+    browser_token_offline: 'Không kết nối được — app có đang chạy không?',
+    browser_connect: 'Kết nối',
+    browser_token_hint: 'Tìm token trong app Settings → Auth Token.',
     // Filters
     filter: 'Lọc',
     filter_all: 'Tất cả',

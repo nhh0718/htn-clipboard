@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"embed"
 	"fmt"
 	"os"
 	"time"
@@ -31,11 +32,12 @@ type App struct {
 	server        *server.Server
 	cleanupCancel context.CancelFunc
 	startedAt     time.Time
+	assets        *embed.FS // embedded frontend/dist, shared with HTTP server
 }
 
 // NewApp creates the App instance for Wails.
-func NewApp() *App {
-	return &App{}
+func NewApp(assets *embed.FS) *App {
+	return &App{assets: assets}
 }
 
 // startup is called by Wails after the window is ready.
@@ -64,7 +66,7 @@ func (a *App) startup(ctx context.Context) {
 	a.repo = storage.NewRepository(db)
 
 	// --- HTTP API server ---
-	a.server = server.NewServer(a.repo, a.config)
+	a.server = server.NewServer(a.repo, a.config, a.assets)
 	a.server.Start()
 
 	// --- Clipboard monitor ---
@@ -119,9 +121,8 @@ func (a *App) onTrayReady() {
 			case <-mShow.ClickedCh:
 				runtime.WindowShow(a.ctx)
 			case <-mDashboard.ClickedCh:
-				// Open the web dashboard in default browser
-				url := fmt.Sprintf("http://127.0.0.1:%d", a.config.Port)
-				_ = browser.OpenURL(url)
+				// Open the same React frontend in the default browser
+				_ = browser.OpenURL(fmt.Sprintf("http://localhost:%d", a.config.Port))
 			case <-mQuit.ClickedCh:
 				runtime.Quit(a.ctx)
 				return

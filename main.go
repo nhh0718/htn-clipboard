@@ -12,7 +12,7 @@ import (
 var assets embed.FS
 
 func main() {
-	app := NewApp()
+	app := NewApp(&assets)
 
 	err := wails.Run(&options.App{
 		Title:            "Clipboard Pro",

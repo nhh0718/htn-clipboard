@@ -43,7 +43,10 @@
       "Bash(git -C /e/Code-Fun/clipboard-pro add README.md frontend/src/assets/ frontend/src/style.css frontend/wailsjs/)",
       "Bash(git -C:*)",
       "Bash(npm run:*)",
-      "Bash(wails dev:*)"
+      "Bash(wails dev:*)",
+      "Bash(go mod:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
