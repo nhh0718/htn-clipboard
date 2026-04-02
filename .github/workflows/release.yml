@@ -30,7 +30,7 @@ jobs:
           echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
 
       - name: Build Windows (exe + installer)
-        run: wails build -tags fts5 -platform windows/amd64 -nsis
+        run: wails build -tags fts5 -platform windows/amd64 -nsis -ldflags "-X main.version=${{ github.ref_name }}"
         env:
           CGO_ENABLED: 1
 
@@ -58,7 +58,7 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build macOS (arm64)
-        run: wails build -tags fts5 -platform darwin/arm64
+        run: wails build -tags fts5 -platform darwin/arm64 -ldflags "-X main.version=${{ github.ref_name }}"
         env:
           CGO_ENABLED: 1
 
@@ -94,7 +94,7 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Build Linux
-        run: wails build -tags fts5 -platform linux/amd64
+        run: wails build -tags fts5 -platform linux/amd64 -ldflags "-X main.version=${{ github.ref_name }}"
         env:
           CGO_ENABLED: 1
 

@@ -64,6 +64,14 @@ const translations = {
     filter_text: 'Text',
     filter_image: 'Image',
     filter_anytime: 'Anytime',
+    // About & Update
+    about: 'About',
+    version: 'Version',
+    check_update: 'Check for updates',
+    checking_update: 'Checking…',
+    update_available: 'New version available',
+    up_to_date: 'You are up to date!',
+    download: 'Download',
     // time
     just_now: 'just now',
   },
@@ -125,6 +133,14 @@ const translations = {
     filter_text: 'Văn bản',
     filter_image: 'Hình ảnh',
     filter_anytime: 'Mọi lúc',
+    // About & Update
+    about: 'Giới thiệu',
+    version: 'Phiên bản',
+    check_update: 'Kiểm tra cập nhật',
+    checking_update: 'Đang kiểm tra…',
+    update_available: 'Có phiên bản mới',
+    up_to_date: 'Bạn đang dùng phiên bản mới nhất!',
+    download: 'Tải về',
     // time
     just_now: 'vừa xong',
   },

@@ -20,11 +20,22 @@ export interface SearchFilter {
 // Health check status from backend
 export interface HealthStatus {
   status: string
+  version: string
   uptime: string
   dbItems: number
   apiPort: number
   monitor: boolean
   autoStart: boolean
+}
+
+// Update check result from GitHub Releases API
+export interface UpdateInfo {
+  available: boolean
+  current: string
+  latest: string
+  downloadURL: string
+  releaseURL: string
+  releaseNote: string
 }
 
 // Application configuration

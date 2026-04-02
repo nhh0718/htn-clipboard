@@ -1,7 +1,7 @@
 import { useState, useEffect, useContext, type ReactNode } from 'react'
-import { X, Eye, EyeOff, Copy, Moon, Sun, Globe, Activity } from 'lucide-react'
-import type { AppConfig, HealthStatus } from '../types/clipboard'
-import { GetConfig, SaveConfig, GetHealth } from '../services/wails-bridge'
+import { X, Eye, EyeOff, Copy, Moon, Sun, Globe, Activity, Download, RefreshCw, ExternalLink } from 'lucide-react'
+import type { AppConfig, HealthStatus, UpdateInfo } from '../types/clipboard'
+import { GetConfig, SaveConfig, GetHealth, GetVersion, CheckForUpdate } from '../services/wails-bridge'
 import { LangContext, LangSetterContext, useTranslation, type Lang } from '../lib/i18n'
 import { ThemeContext, type Theme } from '../lib/theme'
 
@@ -24,6 +24,9 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [health, setHealth] = useState<HealthStatus | null>(null)
+  const [appVersion, setAppVersion] = useState('...')
+  const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
 
   useEffect(() => {
     GetConfig()
@@ -38,7 +41,23 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
     GetHealth()
       .then(setHealth)
       .catch(() => {}) // non-critical
+
+    GetVersion()
+      .then(setAppVersion)
+      .catch(() => setAppVersion('unknown'))
   }, [])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleCheckUpdate() {
+    setCheckingUpdate(true)
+    try {
+      const info = await CheckForUpdate()
+      setUpdateInfo(info)
+    } catch {
+      setUpdateInfo(null)
+    } finally {
+      setCheckingUpdate(false)
+    }
+  }
 
   function handleCopyToken() {
     if (!config) return
@@ -200,6 +219,57 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
               />
             </div>
           )}
+        </Section>
+
+        {/* ── About & Update ── */}
+        <Section label={t('about')}>
+          <div className="rounded-lg border border-border bg-muted/50 p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{t('version')}</span>
+              <span className="text-xs font-mono font-medium text-foreground">{appVersion}</span>
+            </div>
+
+            <button
+              onClick={handleCheckUpdate}
+              disabled={checkingUpdate}
+              className="w-full h-8 flex items-center justify-center gap-1.5 rounded-lg text-xs font-medium border border-border bg-background hover:bg-muted disabled:opacity-50 transition-colors"
+            >
+              <RefreshCw size={12} className={checkingUpdate ? 'animate-spin' : ''} />
+              {checkingUpdate ? t('checking_update') : t('check_update')}
+            </button>
+
+            {updateInfo && (
+              <div className={`rounded-lg p-2.5 text-xs space-y-2 ${updateInfo.available ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-muted'}`}>
+                {updateInfo.available ? (
+                  <>
+                    <p className="font-medium text-emerald-400">
+                      {t('update_available')}: {updateInfo.latest}
+                    </p>
+                    <div className="flex gap-1.5">
+                      <a
+                        href={updateInfo.downloadURL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 h-7 flex items-center justify-center gap-1 rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors"
+                      >
+                        <Download size={11} /> {t('download')}
+                      </a>
+                      <a
+                        href={updateInfo.releaseURL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="h-7 px-2 flex items-center justify-center gap-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                      >
+                        <ExternalLink size={11} /> Release
+                      </a>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-center">{t('up_to_date')}</p>
+                )}
+              </div>
+            )}
+          </div>
         </Section>
 
         {error && <p className="text-xs text-destructive mt-2">{error}</p>}

@@ -85,6 +85,9 @@ func (a *App) startup(ctx context.Context) {
 
 	// --- Global hotkey (Windows only, no-op on other platforms) ---
 	go a.registerHotkey()
+
+	// --- Background update check ---
+	go a.checkUpdateBackground()
 }
 
 // shutdown is called by Wails before the process exits.
@@ -234,6 +237,7 @@ func (a *App) SaveConfig(cfg config.Config) error {
 // HealthCheck returns system health info for the frontend.
 type HealthStatus struct {
 	Status    string `json:"status"`
+	Version   string `json:"version"`
 	Uptime    string `json:"uptime"`
 	DbItems   int64  `json:"dbItems"`
 	ApiPort   int    `json:"apiPort"`
@@ -247,6 +251,7 @@ func (a *App) GetHealth() HealthStatus {
 	uptime := time.Since(a.startedAt).Truncate(time.Second).String()
 	return HealthStatus{
 		Status:    "running",
+		Version:   version,
 		Uptime:    uptime,
 		DbItems:   count,
 		ApiPort:   a.config.Port,

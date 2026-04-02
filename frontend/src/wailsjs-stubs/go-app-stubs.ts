@@ -1,7 +1,7 @@
 // HTTP API fallback — used when running in a browser (not inside Wails WebView).
 // Calls the same Go backend via the local HTTP API on port 27843.
 
-import type { ClipboardItem, AppConfig, SearchFilter, HealthStatus } from '../types/clipboard'
+import type { ClipboardItem, AppConfig, SearchFilter, HealthStatus, UpdateInfo } from '../types/clipboard'
 
 // Same-origin: frontend is served from the API server, so use relative URLs.
 const API_BASE = ''
@@ -64,10 +64,15 @@ export async function SaveConfig(_config: AppConfig): Promise<void> {
   console.warn('[browser] SaveConfig not available via HTTP API')
 }
 
+export async function CheckForUpdate(): Promise<UpdateInfo> {
+  return { available: false, current: 'dev', latest: 'dev', downloadURL: '', releaseURL: '', releaseNote: '' }
+}
+
 export async function GetHealth(): Promise<HealthStatus> {
   const data = await apiFetch<{ status: string; version: string }>('/api/v1/ping')
   return {
     status: data.status === 'ok' ? 'running' : 'error',
+    version: data.version ?? 'dev',
     uptime: '',
     dbItems: 0,
     apiPort: 27843,
