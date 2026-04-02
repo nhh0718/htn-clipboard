@@ -13,6 +13,7 @@ import (
 	"clipboard-pro/internal/storage"
 
 	"github.com/getlantern/systray"
+	"github.com/pkg/browser"
 	hook "github.com/robotn/gohook"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"gorm.io/gorm"
@@ -107,8 +108,8 @@ func (a *App) onTrayReady() {
 	systray.SetTitle("Clipboard Pro")
 	systray.SetTooltip("Clipboard Pro — Running")
 
-	mShow := systray.AddMenuItem("Open Dashboard", "Open the Clipboard Pro window")
-	mHealth := systray.AddMenuItem("Health Check", "Show system health status")
+	mShow := systray.AddMenuItem("Show Window", "Show the Clipboard Pro app window")
+	mDashboard := systray.AddMenuItem("Open Dashboard", "Open web dashboard in browser")
 	systray.AddSeparator()
 	mQuit := systray.AddMenuItem("Quit", "Quit Clipboard Pro")
 
@@ -117,10 +118,10 @@ func (a *App) onTrayReady() {
 			select {
 			case <-mShow.ClickedCh:
 				runtime.WindowShow(a.ctx)
-			case <-mHealth.ClickedCh:
-				runtime.WindowShow(a.ctx)
-				// Emit health event so frontend can show it
-				runtime.EventsEmit(a.ctx, "health:check")
+			case <-mDashboard.ClickedCh:
+				// Open the web dashboard in default browser
+				url := fmt.Sprintf("http://127.0.0.1:%d", a.config.Port)
+				_ = browser.OpenURL(url)
 			case <-mQuit.ClickedCh:
 				runtime.Quit(a.ctx)
 				return

@@ -5,6 +5,7 @@ go 1.24
 require (
 	github.com/getlantern/systray v1.2.2
 	github.com/google/uuid v1.6.0
+	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c
 	github.com/robotn/gohook v0.42.3
 	github.com/wailsapp/wails/v2 v2.12.0
 	golang.design/x/clipboard v0.7.1
@@ -39,7 +40,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.38 // indirect
 	github.com/oxtoacart/bpool v0.0.0-20190530202638-03653db5a59c // indirect
-	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/samber/lo v1.49.1 // indirect

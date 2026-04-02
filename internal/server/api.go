@@ -27,6 +27,7 @@ type Server struct {
 func NewServer(repo *storage.Repository, cfg *config.Config) *Server {
 	s := &Server{repo: repo, config: cfg}
 	mux := http.NewServeMux()
+	mux.HandleFunc("/", s.handleDashboard)
 	mux.HandleFunc("/api/v1/ping", s.handlePing)
 	mux.HandleFunc("/api/v1/history", s.authMiddleware(s.handleHistory))
 	mux.HandleFunc("/api/v1/search", s.authMiddleware(s.handleSearch))
@@ -65,7 +66,8 @@ func (s *Server) Stop(ctx context.Context) {
 func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
-		if strings.HasPrefix(origin, "chrome-extension://") || strings.HasPrefix(origin, "moz-extension://") {
+		if strings.HasPrefix(origin, "chrome-extension://") || strings.HasPrefix(origin, "moz-extension://") ||
+		strings.HasPrefix(origin, "http://127.0.0.1") || strings.HasPrefix(origin, "http://localhost") {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -91,6 +93,15 @@ func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // --- Handlers ---
+
+func (s *Server) handleDashboard(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write([]byte(dashboardHTML))
+}
 
 func (s *Server) handlePing(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": "1.0.0"})
@@ -125,8 +136,11 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := strings.TrimSpace(r.URL.Query().Get("q"))
-	if q == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "q is required"})
+	itemType := r.URL.Query().Get("type")
+	timeRange := r.URL.Query().Get("time")
+	// At least one filter must be specified
+	if q == "" && itemType == "" && timeRange == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "q, type, or time is required"})
 		return
 	}
 	limit := queryInt(r, "limit", 20)
@@ -136,8 +150,8 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	filter := storage.SearchFilter{
 		Query:     q,
-		ItemType:  r.URL.Query().Get("type"),
-		TimeRange: r.URL.Query().Get("time"),
+		ItemType:  itemType,
+		TimeRange: timeRange,
 	}
 	items, err := s.repo.Search(filter, limit)
 	if err != nil {
