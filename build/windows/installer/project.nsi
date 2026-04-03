@@ -1,17 +1,8 @@
 Unicode true
 
 ####
-## Please note: Template replacements don't work in this file. They are provided with default defines like
-## mentioned underneath.
-## If the keyword is not defined, "wails_tools.nsh" will populate them with the values from ProjectInfo.
-## If they are defined here, "wails_tools.nsh" will not touch them. This allows to use this project.nsi manually
-## from outside of Wails for debugging and development of the installer.
-##
-## For development first make a wails nsis build to populate the "wails_tools.nsh":
-## > wails build --target windows/amd64 --nsis
-## Then you can call makensis on this file with specifying the path to your binary:
-## For a AMD64 only installer:
-## > makensis -DARG_WAILS_AMD64_BINARY=..\..\bin\app.exe
+## Wails NSIS Installer for Clipboard Pro
+## Build: wails build --target windows/amd64 --nsis
 ####
 
 ## Include the wails tools
@@ -39,7 +30,7 @@ ManifestDPIAware true
 !define MUI_ABORTWARNING
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 
-# Finish page: option to launch app after install
+# Finish page: option to launch app after install (GUI mode only)
 !define MUI_FINISHPAGE_RUN "$INSTDIR\${PRODUCT_EXECUTABLE}"
 !define MUI_FINISHPAGE_RUN_TEXT "Khoi dong Clipboard Pro"
 
@@ -67,6 +58,11 @@ FunctionEnd
 Section "Install"
     !insertmacro wails.setShellContext
 
+    # ── Kill running instance before replacing files ──
+    # This is critical for auto-update: the old exe must not be locked
+    nsExec::ExecToLog 'taskkill /F /IM ${PRODUCT_EXECUTABLE} /T'
+    Sleep 1000
+
     # Install WebView2 Runtime (required for the app to work)
     !insertmacro wails.webview2runtime
 
@@ -85,10 +81,20 @@ Section "Install"
     !insertmacro wails.associateCustomProtocols
 
     !insertmacro wails.writeUninstaller
+
+    # ── Auto-launch after silent install ──
+    # MUI_FINISHPAGE_RUN only works in GUI mode, so for /S we launch manually
+    IfSilent 0 done
+        Exec '"$INSTDIR\${PRODUCT_EXECUTABLE}"'
+    done:
 SectionEnd
 
 Section "uninstall"
     !insertmacro wails.setShellContext
+
+    # Kill running instance before uninstall
+    nsExec::ExecToLog 'taskkill /F /IM ${PRODUCT_EXECUTABLE} /T'
+    Sleep 500
 
     # Remove autostart
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${INFO_PRODUCTNAME}"
