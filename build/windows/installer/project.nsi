@@ -59,9 +59,10 @@ Section "Install"
     !insertmacro wails.setShellContext
 
     # ── Kill running instance before replacing files ──
-    # This is critical for auto-update: the old exe must not be locked
-    nsExec::ExecToLog 'taskkill /F /IM ${PRODUCT_EXECUTABLE} /T'
-    Sleep 1000
+    # Use ExecWait with cmd.exe (no plugin dependency)
+    DetailPrint "Closing Clipboard Pro..."
+    ExecWait 'cmd.exe /C taskkill /F /IM ${PRODUCT_EXECUTABLE} /T 2>nul'
+    Sleep 2000
 
     # Install WebView2 Runtime (required for the app to work)
     !insertmacro wails.webview2runtime
@@ -84,17 +85,18 @@ Section "Install"
 
     # ── Auto-launch after silent install ──
     # MUI_FINISHPAGE_RUN only works in GUI mode, so for /S we launch manually
-    IfSilent 0 done
+    IfSilent 0 skipLaunch
+        DetailPrint "Launching Clipboard Pro..."
         Exec '"$INSTDIR\${PRODUCT_EXECUTABLE}"'
-    done:
+    skipLaunch:
 SectionEnd
 
 Section "uninstall"
     !insertmacro wails.setShellContext
 
     # Kill running instance before uninstall
-    nsExec::ExecToLog 'taskkill /F /IM ${PRODUCT_EXECUTABLE} /T'
-    Sleep 500
+    ExecWait 'cmd.exe /C taskkill /F /IM ${PRODUCT_EXECUTABLE} /T 2>nul'
+    Sleep 1000
 
     # Remove autostart
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${INFO_PRODUCTNAME}"

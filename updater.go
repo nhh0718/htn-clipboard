@@ -223,13 +223,14 @@ func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
 
 	// Use ShellExecute with "runas" verb to trigger UAC elevation.
 	// NSIS installer needs admin rights to write to Program Files.
+	// The installer itself will:
+	//   1. taskkill this app process
+	//   2. Install new files
+	//   3. Re-launch the app
+	// So we do NOT call runtime.Quit() — let NSIS handle the kill.
 	if err := shellExecuteRunAs(installerPath, "/S"); err != nil {
 		return fmt.Errorf("launch installer: %w", err)
 	}
 
-	// Give installer a moment to start, then quit so it can replace files
-	time.Sleep(1 * time.Second)
-	fmt.Println("[updater] quitting for silent install...")
-	runtime.Quit(a.ctx)
 	return nil
 }
