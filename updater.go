@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -220,15 +219,11 @@ func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
 		"stage": "installing", "percent": 100,
 	})
 
-	fmt.Println("[updater] launching silent installer...")
+	fmt.Println("[updater] launching installer with elevation...")
 
-	// Run NSIS installer with /S (silent) flag — it will:
-	// 1. Install new files to Program Files
-	// 2. Update shortcuts and registry
-	// 3. Optionally launch the new version
-	cmd := exec.Command(installerPath, "/S")
-	cmd.Dir = tmpDir
-	if err := cmd.Start(); err != nil {
+	// Use ShellExecute with "runas" verb to trigger UAC elevation.
+	// NSIS installer needs admin rights to write to Program Files.
+	if err := shellExecuteRunAs(installerPath, "/S"); err != nil {
 		return fmt.Errorf("launch installer: %w", err)
 	}
 
