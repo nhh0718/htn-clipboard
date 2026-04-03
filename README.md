@@ -77,6 +77,8 @@
 2. Chạy trực tiếp — không cần cài đặt
 3. Lưu ý: Windows SmartScreen có thể cảnh báo, chọn "More info" → "Run anyway"
 
+> **Cảnh báo antivirus:** Một số phần mềm diệt virus (Kaspersky, Windows Defender) có thể báo **false positive** với app Go/Wails. Đây là [vấn đề phổ biến của Go](https://go.dev/doc/faq#virus) — binary Go chứa runtime lớn khiến heuristic AV nhầm lẫn. App là **mã nguồn mở**, bạn có thể kiểm tra toàn bộ source code tại đây. Nếu gặp cảnh báo, hãy thêm app vào whitelist.
+
 ### macOS
 
 1. Tải file `clipboard-pro-macos-arm64.zip` từ [Releases](../../releases)
