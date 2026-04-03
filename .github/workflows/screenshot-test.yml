@@ -42,72 +42,107 @@ jobs:
         env:
           CGO_ENABLED: 1
 
+      - name: Grant macOS permissions
+        run: |
+          # Grant accessibility + screen recording permissions for screencapture
+          # On CI runners, tccutil works without SIP
+          sudo tccutil reset ScreenCapture 2>/dev/null || true
+          sudo tccutil reset Accessibility 2>/dev/null || true
+
+          # Add Terminal and screencapture to allowed apps
+          DB="/Library/Application Support/com.apple.TCC/TCC.db"
+          for app in "/usr/sbin/screencapture" "/usr/bin/osascript" "/bin/bash"; do
+            BUNDLE=$(osascript -e "id of app \"Terminal\"" 2>/dev/null || echo "com.apple.Terminal")
+            sudo sqlite3 "$DB" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version) VALUES ('kTCCServiceScreenCapture', '$BUNDLE', 0, 2, 0, 1);" 2>/dev/null || true
+          done
+
+          # Dismiss any pending permission dialogs via AppleScript
+          osascript -e 'tell application "System Events" to click button "Allow" of window 1 of process "UserNotificationCenter"' 2>/dev/null || true
+          osascript -e 'tell application "System Events" to click button "OK" of window 1 of process "UserNotificationCenter"' 2>/dev/null || true
+          echo "Permissions configured"
+
       - name: Launch app and generate sample data
         run: |
           mkdir -p screenshots
 
-          # Launch the app in background
-          open build/bin/clipboard-pro.app &
+          # Launch the app
+          open build/bin/clipboard-pro.app
           echo "Waiting for app to start..."
-          sleep 8
+          sleep 10
 
-          # Copy sample data to clipboard so the app captures it
-          echo "Hello from Clipboard Pro! 🚀 This is a sample text entry." | pbcopy
+          # Auto-dismiss any macOS permission dialogs
+          osascript <<'APPLESCRIPT'
+            tell application "System Events"
+              try
+                repeat 3 times
+                  click button "OK" of window 1 of process "UserNotificationCenter"
+                  delay 0.5
+                end repeat
+              end try
+              try
+                click button "Allow" of window 1 of process "UserNotificationCenter"
+              end try
+              try
+                click button "Open System Settings" of window 1 of process "UserNotificationCenter"
+              end try
+            end tell
+          APPLESCRIPT
+          sleep 2
+
+          # Copy sample data to clipboard via pbcopy
+          echo "Hello from Clipboard Pro! This is a sample text entry." | pbcopy
           sleep 2
           echo "SELECT * FROM users WHERE active = true ORDER BY created_at DESC;" | pbcopy
           sleep 2
-          echo "https://github.com/nhh0718/htn-clipboard — Clipboard Pro repository" | pbcopy
+          echo "https://github.com/nhh0718/htn-clipboard" | pbcopy
           sleep 2
-          echo "Xin chào! Đây là Clipboard Pro — ứng dụng quản lý clipboard đa nền tảng 🇻🇳" | pbcopy
+          echo "Xin chao! Day la Clipboard Pro — ung dung quan ly clipboard da nen tang" | pbcopy
           sleep 2
-          echo '{"name": "Clipboard Pro", "version": "2.0.6", "platform": ["Windows", "macOS"]}' | pbcopy
+          echo '{"name": "Clipboard Pro", "version": "2.0.7", "platform": ["Windows", "macOS"]}' | pbcopy
           sleep 2
-          echo "npm install && wails build -tags fts5 -platform darwin/arm64" | pbcopy
-          sleep 2
+          echo "npm install && wails build -tags fts5" | pbcopy
+          sleep 3
 
-          echo "Sample data copied to clipboard"
+          echo "6 sample items copied"
 
-      - name: Screenshot app with data
+      - name: Screenshot app
         run: |
-          # Screenshot 1: App with clipboard history
+          # Activate the app window
+          osascript -e 'tell application "Clipboard Pro" to activate' 2>/dev/null || true
+          sleep 2
+
+          # Take screenshot (screencapture -x = no sound)
           screencapture -x screenshots/01-app-with-data.png
-          echo "Captured app with data"
-          sleep 1
+          echo "Captured: app with clipboard data"
 
-          # Screenshot 2: Full desktop view
-          screencapture -x screenshots/02-full-desktop.png
-          echo "Captured full desktop"
-
-      - name: Open web dashboard and screenshot
+      - name: Screenshot web dashboard
         run: |
-          # Open dashboard in Safari
+          # Open dashboard in default browser
           open "http://localhost:27843"
-          echo "Waiting for dashboard to load..."
           sleep 5
 
-          # Screenshot 3: Web dashboard
-          screencapture -x screenshots/03-web-dashboard.png
-          echo "Captured web dashboard"
-          sleep 2
-
-          # Click on the Safari window to make sure it's focused
+          # Focus Safari/browser
           osascript -e 'tell application "Safari" to activate' 2>/dev/null || true
           sleep 2
-          screencapture -x screenshots/04-web-dashboard-focused.png
-          echo "Captured web dashboard focused"
 
-      - name: Screenshot analytics tab
+          screencapture -x screenshots/02-web-dashboard.png
+          echo "Captured: web dashboard"
+
+      - name: Screenshot app again (switch back)
         run: |
-          # Switch back to app and try clicking analytics tab
-          osascript -e 'tell application "clipboard-pro" to activate' 2>/dev/null || true
+          # Focus app again
+          osascript -e 'tell application "Clipboard Pro" to activate' 2>/dev/null || true
           sleep 2
-          screencapture -x screenshots/05-app-focused.png
-          echo "Captured app focused"
 
-          echo "All screenshots captured!"
-          ls -la screenshots/
+          screencapture -x screenshots/03-app-final.png
+          echo "Captured: app final state"
+
+          # List all screenshots
+          echo "=== All Screenshots ==="
+          ls -lh screenshots/
 
       - name: Upload screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-macos
@@ -139,20 +174,14 @@ jobs:
         env:
           CGO_ENABLED: 1
 
-      - name: Launch app and take screenshots
+      - name: Launch app, generate data, take screenshots
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path screenshots
 
-          # Launch app in background
-          Start-Process -FilePath "build\bin\clipboard-pro.exe"
-          Write-Output "Waiting for app to start..."
-          Start-Sleep -Seconds 8
-
-          # Take screenshots using PowerShell
+          # Screenshot helper
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
-
           function Take-Screenshot($path) {
             $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
             $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
@@ -164,14 +193,31 @@ jobs:
             Write-Output "Captured: $path"
           }
 
-          Take-Screenshot "screenshots\01-main-window.png"
-          Start-Sleep -Seconds 3
-          Take-Screenshot "screenshots\02-after-load.png"
+          # Launch app
+          Start-Process -FilePath "build\bin\clipboard-pro.exe"
+          Start-Sleep -Seconds 8
 
-          Write-Output "All screenshots captured!"
+          # Copy sample data
+          "Hello from Clipboard Pro! Sample text entry." | Set-Clipboard
+          Start-Sleep -Seconds 2
+          "SELECT * FROM users WHERE active = true;" | Set-Clipboard
+          Start-Sleep -Seconds 2
+          "https://github.com/nhh0718/htn-clipboard" | Set-Clipboard
+          Start-Sleep -Seconds 2
+          '{"name": "Clipboard Pro", "version": "2.0.7"}' | Set-Clipboard
+          Start-Sleep -Seconds 3
+
+          Take-Screenshot "screenshots\01-app-with-data.png"
+
+          # Open web dashboard
+          Start-Process "http://localhost:27843"
+          Start-Sleep -Seconds 5
+          Take-Screenshot "screenshots\02-web-dashboard.png"
+
           Get-ChildItem screenshots\
 
       - name: Upload screenshots
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: screenshots-windows
