@@ -74,8 +74,8 @@ const translations = {
     download: 'Download',
     update_banner: 'New version available:',
     update_install: 'Update Now',
-    update_downloading: 'Downloading…',
-    update_closing: 'Closing app to install update in',
+    update_downloading: 'Downloading update…',
+    update_installing: 'Installing update, app will restart…',
     // Analytics
     tab_history: 'History',
     analytics_title: 'Analytics',
@@ -161,8 +161,8 @@ const translations = {
     download: 'Tải về',
     update_banner: 'Có phiên bản mới:',
     update_install: 'Cập nhật ngay',
-    update_downloading: 'Đang tải…',
-    update_closing: 'Đóng app để cài bản mới sau',
+    update_downloading: 'Đang tải bản cập nhật…',
+    update_installing: 'Đang cài đặt, app sẽ khởi động lại…',
     // Analytics
     tab_history: 'Lịch sử',
     analytics_title: 'Thống kê',

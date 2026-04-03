@@ -3,11 +3,14 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/pkg/browser"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -49,9 +52,7 @@ func (a *App) GetVersion() string {
 // CheckForUpdate queries the GitHub Releases API and compares the latest
 // tag against the compiled-in version.
 func (a *App) CheckForUpdate() UpdateInfo {
-	result := UpdateInfo{
-		Current: version,
-	}
+	result := UpdateInfo{Current: version}
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(githubAPIURL)
@@ -83,7 +84,6 @@ func (a *App) CheckForUpdate() UpdateInfo {
 			break
 		}
 	}
-	// Fallback to .exe if no installer found
 	if result.DownloadURL == "" {
 		for _, asset := range release.Assets {
 			if strings.HasSuffix(asset.Name, ".exe") {
@@ -92,7 +92,6 @@ func (a *App) CheckForUpdate() UpdateInfo {
 			}
 		}
 	}
-	// Final fallback to release page
 	if result.DownloadURL == "" {
 		result.DownloadURL = release.HTMLURL
 	}
@@ -102,18 +101,14 @@ func (a *App) CheckForUpdate() UpdateInfo {
 }
 
 // isNewer returns true if latest is a higher semver than current.
-// Handles tags with or without "v" prefix (e.g. "v1.2.0" vs "1.2.0").
 func isNewer(latest, current string) bool {
 	latest = strings.TrimPrefix(latest, "v")
 	current = strings.TrimPrefix(current, "v")
-
 	if current == "dev" || current == "" {
-		return true // dev builds always show update available
+		return true
 	}
-
 	lParts := parseSemver(latest)
 	cParts := parseSemver(current)
-
 	for i := 0; i < 3; i++ {
 		if lParts[i] > cParts[i] {
 			return true
@@ -125,7 +120,6 @@ func isNewer(latest, current string) bool {
 	return false
 }
 
-// parseSemver splits "1.2.3" into [1, 2, 3]. Returns [0,0,0] on parse failure.
 func parseSemver(v string) [3]int {
 	var parts [3]int
 	_, _ = fmt.Sscanf(v, "%d.%d.%d", &parts[0], &parts[1], &parts[2])
@@ -143,30 +137,104 @@ func (a *App) checkUpdateBackground() {
 	}
 }
 
-// DownloadAndInstallUpdate opens the installer download URL in the browser,
-// waits a few seconds for the download to start, then quits the app
-// so the installer can replace files.
+// DownloadAndInstallUpdate downloads the installer silently in the background,
+// then runs it with /S (NSIS silent install) flag and quits the app.
+// This mimics how professional apps (VS Code, Discord, Notion) handle updates:
+// background download → silent install → app quits → installer replaces → done.
 func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
 	if downloadURL == "" {
 		return fmt.Errorf("no download URL provided")
 	}
 
-	fmt.Printf("[updater] opening download URL: %s\n", downloadURL)
+	fmt.Printf("[updater] downloading: %s\n", downloadURL)
+	runtime.EventsEmit(a.ctx, "update:progress", map[string]interface{}{
+		"stage": "downloading", "percent": 0,
+	})
 
-	// Open download link in default browser
-	if err := browser.OpenURL(downloadURL); err != nil {
-		return fmt.Errorf("open browser: %w", err)
+	// GitHub release URLs redirect (302) to CDN — http.Client follows redirects by default.
+	// Use a generous timeout for large files.
+	client := &http.Client{Timeout: 10 * time.Minute}
+	resp, err := client.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("download error: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download HTTP %d", resp.StatusCode)
 	}
 
-	// Emit countdown event — frontend shows "Đóng app sau 3s..."
-	runtime.EventsEmit(a.ctx, "update:closing", 3)
+	// Save to temp directory
+	tmpDir := os.TempDir()
+	installerPath := filepath.Join(tmpDir, "clipboard-pro-installer.exe")
+	outFile, err := os.Create(installerPath)
+	if err != nil {
+		return fmt.Errorf("create file: %w", err)
+	}
 
-	// Wait for download to start, then quit
-	go func() {
-		time.Sleep(3 * time.Second)
-		fmt.Println("[updater] quitting app for update...")
-		runtime.Quit(a.ctx)
-	}()
+	// Track download progress
+	totalSize := resp.ContentLength
+	var downloaded int64
+	buf := make([]byte, 32*1024) // 32KB buffer
+	for {
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := outFile.Write(buf[:n]); writeErr != nil {
+				outFile.Close()
+				return fmt.Errorf("write file: %w", writeErr)
+			}
+			downloaded += int64(n)
+			if totalSize > 0 {
+				pct := int(float64(downloaded) / float64(totalSize) * 100)
+				runtime.EventsEmit(a.ctx, "update:progress", map[string]interface{}{
+					"stage": "downloading", "percent": pct,
+				})
+			}
+		}
+		if readErr == io.EOF {
+			break
+		}
+		if readErr != nil {
+			outFile.Close()
+			return fmt.Errorf("read body: %w", readErr)
+		}
+	}
+	outFile.Close()
 
+	fmt.Printf("[updater] downloaded %d bytes → %s\n", downloaded, installerPath)
+
+	// Verify it's a real PE executable (MZ magic bytes)
+	f, err := os.Open(installerPath)
+	if err != nil {
+		return fmt.Errorf("verify open: %w", err)
+	}
+	magic := make([]byte, 2)
+	f.Read(magic)
+	f.Close()
+	if string(magic) != "MZ" {
+		return fmt.Errorf("downloaded file is not a valid Windows executable")
+	}
+
+	// Emit "installing" stage
+	runtime.EventsEmit(a.ctx, "update:progress", map[string]interface{}{
+		"stage": "installing", "percent": 100,
+	})
+
+	fmt.Println("[updater] launching silent installer...")
+
+	// Run NSIS installer with /S (silent) flag — it will:
+	// 1. Install new files to Program Files
+	// 2. Update shortcuts and registry
+	// 3. Optionally launch the new version
+	cmd := exec.Command(installerPath, "/S")
+	cmd.Dir = tmpDir
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("launch installer: %w", err)
+	}
+
+	// Give installer a moment to start, then quit so it can replace files
+	time.Sleep(1 * time.Second)
+	fmt.Println("[updater] quitting for silent install...")
+	runtime.Quit(a.ctx)
 	return nil
 }
