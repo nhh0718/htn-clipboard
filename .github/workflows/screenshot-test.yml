@@ -42,7 +42,7 @@ jobs:
         env:
           CGO_ENABLED: 1
 
-      - name: Launch app and take screenshots
+      - name: Launch app and generate sample data
         run: |
           mkdir -p screenshots
 
@@ -51,28 +51,58 @@ jobs:
           echo "Waiting for app to start..."
           sleep 8
 
-          # Screenshot 1: Main window
-          screencapture -x screenshots/01-main-window.png
-          echo "Captured main window"
-
-          # Screenshot 2: Full desktop
-          screencapture -x -D 1 screenshots/02-full-desktop.png
-          echo "Captured full desktop"
-
+          # Copy sample data to clipboard so the app captures it
+          echo "Hello from Clipboard Pro! 🚀 This is a sample text entry." | pbcopy
+          sleep 2
+          echo "SELECT * FROM users WHERE active = true ORDER BY created_at DESC;" | pbcopy
+          sleep 2
+          echo "https://github.com/nhh0718/htn-clipboard — Clipboard Pro repository" | pbcopy
+          sleep 2
+          echo "Xin chào! Đây là Clipboard Pro — ứng dụng quản lý clipboard đa nền tảng 🇻🇳" | pbcopy
+          sleep 2
+          echo '{"name": "Clipboard Pro", "version": "2.0.6", "platform": ["Windows", "macOS"]}' | pbcopy
+          sleep 2
+          echo "npm install && wails build -tags fts5 -platform darwin/arm64" | pbcopy
           sleep 2
 
-          # Try to capture the app window specifically
-          # Get window ID of Clipboard Pro
-          WINDOW_ID=$(osascript -e 'tell application "System Events" to get id of first window of (first process whose name contains "clipboard")' 2>/dev/null || echo "")
-          if [ -n "$WINDOW_ID" ]; then
-            screencapture -x -l "$WINDOW_ID" screenshots/03-app-window.png
-            echo "Captured app window by ID"
-          fi
+          echo "Sample data copied to clipboard"
 
-          # Screenshot 3: After a few more seconds (data might load)
-          sleep 3
-          screencapture -x screenshots/04-after-load.png
-          echo "Captured after load"
+      - name: Screenshot app with data
+        run: |
+          # Screenshot 1: App with clipboard history
+          screencapture -x screenshots/01-app-with-data.png
+          echo "Captured app with data"
+          sleep 1
+
+          # Screenshot 2: Full desktop view
+          screencapture -x screenshots/02-full-desktop.png
+          echo "Captured full desktop"
+
+      - name: Open web dashboard and screenshot
+        run: |
+          # Open dashboard in Safari
+          open "http://localhost:27843"
+          echo "Waiting for dashboard to load..."
+          sleep 5
+
+          # Screenshot 3: Web dashboard
+          screencapture -x screenshots/03-web-dashboard.png
+          echo "Captured web dashboard"
+          sleep 2
+
+          # Click on the Safari window to make sure it's focused
+          osascript -e 'tell application "Safari" to activate' 2>/dev/null || true
+          sleep 2
+          screencapture -x screenshots/04-web-dashboard-focused.png
+          echo "Captured web dashboard focused"
+
+      - name: Screenshot analytics tab
+        run: |
+          # Switch back to app and try clicking analytics tab
+          osascript -e 'tell application "clipboard-pro" to activate' 2>/dev/null || true
+          sleep 2
+          screencapture -x screenshots/05-app-focused.png
+          echo "Captured app focused"
 
           echo "All screenshots captured!"
           ls -la screenshots/
