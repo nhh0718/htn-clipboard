@@ -25,9 +25,28 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Install NSIS
+        shell: pwsh
         run: |
           choco install nsis -y
-          echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+          $nsisPath = (Get-Command makensis -ErrorAction SilentlyContinue).Source
+          if (-not $nsisPath) {
+            $candidates = @(
+              "C:\Program Files (x86)\NSIS\Bin",
+              "C:\Program Files (x86)\NSIS",
+              "C:\Program Files\NSIS\Bin",
+              "C:\Program Files\NSIS"
+            )
+            foreach ($p in $candidates) {
+              if (Test-Path "$p\makensis.exe") {
+                $nsisPath = $p
+                break
+              }
+            }
+          } else {
+            $nsisPath = Split-Path $nsisPath
+          }
+          Write-Output "NSIS found at: $nsisPath"
+          echo $nsisPath >> $env:GITHUB_PATH
 
       - name: Build Windows (exe + installer)
         run: wails build -tags fts5 -platform windows/amd64 -nsis -ldflags "-X main.version=${{ github.ref_name }}"
