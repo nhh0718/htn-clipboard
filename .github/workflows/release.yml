@@ -25,45 +25,30 @@ jobs:
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
       - name: Install NSIS
-        shell: cmd
-        run: |
-          choco install nsis -y --force
-          refreshenv
-          where makensis || echo "makensis not in PATH yet"
-          dir "C:\Program Files (x86)\NSIS" 2>nul || echo "not in x86"
-          dir "C:\Program Files\NSIS" 2>nul || echo "not in PF"
-
-      - name: Add NSIS to PATH
         shell: pwsh
         run: |
-          # Search common locations + choco lib
-          $searchPaths = @(
-            "C:\Program Files (x86)\NSIS",
-            "C:\Program Files\NSIS",
-            "$env:ChocolateyInstall\lib\nsis.portable\tools",
-            "$env:ChocolateyInstall\lib\nsis\tools"
-          )
-          foreach ($p in $searchPaths) {
-            if (Test-Path "$p\makensis.exe") {
-              Write-Output "NSIS found: $p"
-              echo $p >> $env:GITHUB_PATH
-              exit 0
+          # Try choco first, fallback to direct download if it fails
+          $nsisInstalled = $false
+          try {
+            choco install nsis -y --no-progress 2>$null
+            if (Test-Path "C:\Program Files (x86)\NSIS\makensis.exe") {
+              echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+              Write-Output "NSIS installed via choco"
+              $nsisInstalled = $true
             }
-            if (Test-Path "$p\Bin\makensis.exe") {
-              Write-Output "NSIS found: $p\Bin"
-              echo "$p\Bin" >> $env:GITHUB_PATH
-              exit 0
-            }
+          } catch {}
+          if (-not $nsisInstalled) {
+            Write-Output "Choco failed, downloading NSIS directly..."
+            $url = "https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10-setup.exe/download"
+            $installer = "$env:TEMP\nsis-setup.exe"
+            Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
+            Start-Process -Wait -FilePath $installer -ArgumentList "/S","/D=C:\nsis"
+            echo "C:\nsis" >> $env:GITHUB_PATH
+            Write-Output "NSIS installed via direct download to C:\nsis"
           }
-          # Fallback: search choco install dir
-          $found = Get-ChildItem "$env:ChocolateyInstall\lib" -Recurse -Filter "makensis.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($found) {
-            Write-Output "NSIS found: $($found.DirectoryName)"
-            echo $found.DirectoryName >> $env:GITHUB_PATH
-          } else {
-            Write-Error "makensis.exe not found!"
-            exit 1
-          }
+          # Verify
+          $env:PATH = "C:\Program Files (x86)\NSIS;C:\nsis;$env:PATH"
+          makensis /VERSION
 
       - name: Build Windows (exe + installer)
         run: wails build -tags fts5 -platform windows/amd64 -nsis -ldflags "-X main.version=${{ github.ref_name }}"
