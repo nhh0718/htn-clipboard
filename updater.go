@@ -219,18 +219,26 @@ func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
 		"stage": "installing", "percent": 100,
 	})
 
-	fmt.Println("[updater] launching installer with elevation...")
+	fmt.Printf("[updater] installer size: %d bytes, path: %s\n", downloaded, installerPath)
+	fmt.Println("[updater] launching installer with elevation (GUI mode)...")
 
-	// Use ShellExecute with "runas" verb to trigger UAC elevation.
-	// NSIS installer needs admin rights to write to Program Files.
-	// The installer itself will:
-	//   1. taskkill this app process
-	//   2. Install new files
-	//   3. Re-launch the app
-	// So we do NOT call runtime.Quit() — let NSIS handle the kill.
-	if err := shellExecuteRunAs(installerPath, "/S"); err != nil {
+	// Launch installer WITH GUI (not silent) so user can see progress.
+	// The installer will:
+	//   1. Show install wizard (user clicks through or it auto-progresses)
+	//   2. taskkill old app process
+	//   3. Install new files to Program Files
+	//   4. Create shortcuts, update registry
+	//   5. Offer to launch the app on finish page
+	if err := shellExecuteRunAs(installerPath, ""); err != nil {
 		return fmt.Errorf("launch installer: %w", err)
 	}
+
+	// Quit the app so installer can replace the exe
+	go func() {
+		time.Sleep(2 * time.Second)
+		fmt.Println("[updater] quitting for installer...")
+		runtime.Quit(a.ctx)
+	}()
 
 	return nil
 }
