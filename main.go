@@ -6,6 +6,7 @@ import (
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 )
 
@@ -29,6 +30,15 @@ func main() {
 		Windows: &windows.Options{
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  false,
+		},
+		Mac: &mac.Options{
+			TitleBar:             mac.TitleBarHiddenInset(),
+			WebviewIsTransparent: true,
+			WindowIsTranslucent:  true,
+			About: &mac.AboutInfo{
+				Title:   "Clipboard Pro",
+				Message: "Cross-platform clipboard history manager",
+			},
 		},
 		OnStartup:  app.startup,
 		OnShutdown: app.shutdown,
