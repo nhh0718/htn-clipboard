@@ -27,26 +27,31 @@ jobs:
       - name: Install NSIS
         shell: pwsh
         run: |
-          # Download NSIS portable zip directly (no choco dependency)
-          $nsisVer = "3.10"
-          $url = "https://sourceforge.net/projects/nsis/files/NSIS%203/$nsisVer/nsis-$nsisVer.zip/download"
-          $zip = "$env:TEMP\nsis.zip"
-          Write-Output "Downloading NSIS $nsisVer..."
-          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-          $wc = New-Object System.Net.WebClient
-          $wc.DownloadFile($url, $zip)
-          Write-Output "Extracting..."
-          Expand-Archive -Path $zip -DestinationPath "C:\nsis-extract" -Force
-          $nsisDir = "C:\nsis-extract\nsis-$nsisVer"
-          if (Test-Path "$nsisDir\makensis.exe") {
-            echo $nsisDir >> $env:GITHUB_PATH
-            Write-Output "NSIS ready at $nsisDir"
-          } else {
-            # Might be extracted without version subfolder
-            $found = Get-ChildItem "C:\nsis-extract" -Recurse -Filter "makensis.exe" | Select-Object -First 1
-            echo $found.DirectoryName >> $env:GITHUB_PATH
-            Write-Output "NSIS ready at $($found.DirectoryName)"
+          # Use winget (pre-installed on windows-latest) to install NSIS
+          winget install NSIS.NSIS --accept-source-agreements --accept-package-agreements --silent
+          # Add to PATH for next steps
+          $candidates = @(
+            "C:\Program Files (x86)\NSIS",
+            "C:\Program Files\NSIS",
+            "${env:LOCALAPPDATA}\Programs\NSIS"
+          )
+          foreach ($p in $candidates) {
+            if (Test-Path "$p\makensis.exe") {
+              echo $p >> $env:GITHUB_PATH
+              Write-Output "NSIS found at: $p"
+              & "$p\makensis.exe" /VERSION
+              exit 0
+            }
           }
+          # Fallback: search entire Program Files
+          $found = Get-ChildItem "C:\Program Files*" -Recurse -Filter "makensis.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($found) {
+            echo $found.DirectoryName >> $env:GITHUB_PATH
+            Write-Output "NSIS found at: $($found.DirectoryName)"
+            exit 0
+          }
+          Write-Error "NSIS installation failed"
+          exit 1
 
       - name: Build Windows (exe + installer)
         run: wails build -tags fts5 -platform windows/amd64 -nsis -ldflags "-X main.version=${{ github.ref_name }}"
