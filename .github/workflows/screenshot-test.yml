@@ -37,81 +37,50 @@ jobs:
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      - name: Install Playwright
-        run: npx playwright install chromium
-
       - name: Build macOS app
         run: wails build -tags fts5 -platform darwin/arm64 -ldflags "-X main.version=test"
         env:
           CGO_ENABLED: 1
 
-      - name: Launch app and generate sample data
+      - name: Launch app, copy sample data, take screenshots
         run: |
           mkdir -p screenshots
 
-          # Launch the app
+          # Launch app
           open build/bin/clipboard-pro.app
-          echo "Waiting for app to start..."
-          sleep 10
+          sleep 8
 
-          # Copy sample data via pbcopy
-          echo "Hello from Clipboard Pro! This is a sample text entry." | pbcopy
+          # Screenshot 1: App just opened
+          screencapture -x screenshots/01-app-opened.png
+
+          # Copy sample data
+          echo "Hello from Clipboard Pro!" | pbcopy
           sleep 2
-          echo "SELECT * FROM users WHERE active = true ORDER BY created_at DESC;" | pbcopy
+          echo "SELECT * FROM users WHERE active = true;" | pbcopy
           sleep 2
           echo "https://github.com/nhh0718/htn-clipboard" | pbcopy
           sleep 2
-          echo "Xin chao! Day la Clipboard Pro — ung dung quan ly clipboard da nen tang" | pbcopy
+          echo "Xin chao! Clipboard Pro da nen tang" | pbcopy
           sleep 2
-          echo '{"name": "Clipboard Pro", "version": "2.0.7", "platform": ["Windows", "macOS"]}' | pbcopy
+          echo '{"name":"Clipboard Pro","version":"2.0.7"}' | pbcopy
           sleep 2
           echo "npm install && wails build -tags fts5" | pbcopy
           sleep 3
 
-          echo "6 sample items copied, app should have captured them"
+          # Screenshot 2: App with data
+          screencapture -x screenshots/02-app-with-data.png
 
-      - name: Screenshot web dashboard via Playwright
-        run: |
-          node -e "
-          const { chromium } = require('playwright');
-          (async () => {
-            const browser = await chromium.launch();
-            const page = await browser.newPage({ viewport: { width: 420, height: 700 } });
+          # Open web dashboard
+          open "http://localhost:27843"
+          sleep 5
+          screencapture -x screenshots/03-web-dashboard.png
 
-            // Main dashboard (no auth needed for same-origin, but we need token)
-            // First get the auth token from the API
-            let token = '';
-            try {
-              const resp = await page.request.get('http://localhost:27843/api/v1/ping');
-              console.log('Ping:', resp.status());
-            } catch(e) {
-              console.log('Ping failed:', e.message);
-            }
+          # Back to app
+          osascript -e 'tell application "Clipboard Pro" to activate' 2>/dev/null || true
+          sleep 2
+          screencapture -x screenshots/04-app-final.png
 
-            // Screenshot 1: Dashboard login/token page
-            await page.goto('http://localhost:27843');
-            await page.waitForTimeout(3000);
-            await page.screenshot({ path: 'screenshots/01-web-dashboard-login.png', fullPage: true });
-            console.log('Captured: web dashboard login');
-
-            // Screenshot 2: Try with a wide viewport (like desktop)
-            await page.setViewportSize({ width: 1200, height: 800 });
-            await page.goto('http://localhost:27843');
-            await page.waitForTimeout(3000);
-            await page.screenshot({ path: 'screenshots/02-web-dashboard-wide.png', fullPage: true });
-            console.log('Captured: web dashboard wide');
-
-            // Screenshot 3: Mobile viewport
-            await page.setViewportSize({ width: 375, height: 812 });
-            await page.goto('http://localhost:27843');
-            await page.waitForTimeout(2000);
-            await page.screenshot({ path: 'screenshots/03-web-mobile.png', fullPage: true });
-            console.log('Captured: web mobile');
-
-            await browser.close();
-            console.log('All Playwright screenshots done');
-          })().catch(e => { console.error(e); process.exit(1); });
-          "
+          ls -lh screenshots/
 
       - name: Upload screenshots
         if: always()
@@ -141,66 +110,37 @@ jobs:
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-      - name: Install Playwright
-        run: npx playwright install chromium
-
-      - name: Build Windows app
-        run: wails build -tags fts5 -platform windows/amd64 -ldflags "-X main.version=test"
-        env:
-          CGO_ENABLED: 1
-
-      - name: Launch app, generate data, take screenshots
+      - name: Build and screenshot
         shell: pwsh
         run: |
+          wails build -tags fts5 -platform windows/amd64 -ldflags "-X main.version=test"
           New-Item -ItemType Directory -Force -Path screenshots
 
-          # Launch app
-          Start-Process -FilePath "build\bin\clipboard-pro.exe"
-          Start-Sleep -Seconds 10
-
-          # Copy sample data
-          "Hello from Clipboard Pro! Sample text entry." | Set-Clipboard
-          Start-Sleep -Seconds 2
-          "SELECT * FROM users WHERE active = true;" | Set-Clipboard
-          Start-Sleep -Seconds 2
-          "https://github.com/nhh0718/htn-clipboard" | Set-Clipboard
-          Start-Sleep -Seconds 2
-          '{"name": "Clipboard Pro", "version": "2.0.7"}' | Set-Clipboard
-          Start-Sleep -Seconds 3
-
-          # Take native screenshot
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
-          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-          $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
-          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-          $graphics.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
-          $bitmap.Save("screenshots\01-windows-app.png", [System.Drawing.Imaging.ImageFormat]::Png)
-          $graphics.Dispose()
-          $bitmap.Dispose()
-          Write-Output "Captured: Windows app"
+          function Take-Screenshot($path) {
+            $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            $graphics.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
+            $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose()
+            $bitmap.Dispose()
+          }
 
-      - name: Screenshot web dashboard via Playwright
-        shell: pwsh
-        run: |
-          node -e "
-          const { chromium } = require('playwright');
-          (async () => {
-            const browser = await chromium.launch();
-            const page = await browser.newPage({ viewport: { width: 420, height: 700 } });
-            await page.goto('http://localhost:27843');
-            await page.waitForTimeout(3000);
-            await page.screenshot({ path: 'screenshots/02-web-dashboard.png', fullPage: true });
-            console.log('Captured: web dashboard');
+          Start-Process -FilePath "build\bin\clipboard-pro.exe"
+          Start-Sleep -Seconds 8
+          Take-Screenshot "screenshots\01-app-opened.png"
 
-            await page.setViewportSize({ width: 1200, height: 800 });
-            await page.goto('http://localhost:27843');
-            await page.waitForTimeout(3000);
-            await page.screenshot({ path: 'screenshots/03-web-dashboard-wide.png', fullPage: true });
-            console.log('Captured: web dashboard wide');
-            await browser.close();
-          })().catch(e => { console.error(e); process.exit(1); });
-          "
+          "Hello from Clipboard Pro!" | Set-Clipboard
+          Start-Sleep -Seconds 2
+          "SELECT * FROM users;" | Set-Clipboard
+          Start-Sleep -Seconds 2
+          "https://github.com/nhh0718/htn-clipboard" | Set-Clipboard
+          Start-Sleep -Seconds 3
+          Take-Screenshot "screenshots\02-app-with-data.png"
+        env:
+          CGO_ENABLED: 1
 
       - name: Upload screenshots
         if: always()
