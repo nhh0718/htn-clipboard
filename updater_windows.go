@@ -25,7 +25,7 @@ func shellExecuteRunAs(exe string, args string) error {
 		uintptr(unsafe.Pointer(file)),
 		uintptr(unsafe.Pointer(params)),
 		0,
-		syscall.SW_HIDE,
+		syscall.SW_SHOWNORMAL,
 	)
 
 	// ShellExecute returns >32 on success
