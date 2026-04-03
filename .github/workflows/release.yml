@@ -27,28 +27,26 @@ jobs:
       - name: Install NSIS
         shell: pwsh
         run: |
-          # Try choco first, fallback to direct download if it fails
-          $nsisInstalled = $false
-          try {
-            choco install nsis -y --no-progress 2>$null
-            if (Test-Path "C:\Program Files (x86)\NSIS\makensis.exe") {
-              echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
-              Write-Output "NSIS installed via choco"
-              $nsisInstalled = $true
-            }
-          } catch {}
-          if (-not $nsisInstalled) {
-            Write-Output "Choco failed, downloading NSIS directly..."
-            $url = "https://sourceforge.net/projects/nsis/files/NSIS%203/3.10/nsis-3.10-setup.exe/download"
-            $installer = "$env:TEMP\nsis-setup.exe"
-            Invoke-WebRequest -Uri $url -OutFile $installer -UseBasicParsing
-            Start-Process -Wait -FilePath $installer -ArgumentList "/S","/D=C:\nsis"
-            echo "C:\nsis" >> $env:GITHUB_PATH
-            Write-Output "NSIS installed via direct download to C:\nsis"
+          # Download NSIS portable zip directly (no choco dependency)
+          $nsisVer = "3.10"
+          $url = "https://sourceforge.net/projects/nsis/files/NSIS%203/$nsisVer/nsis-$nsisVer.zip/download"
+          $zip = "$env:TEMP\nsis.zip"
+          Write-Output "Downloading NSIS $nsisVer..."
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          $wc = New-Object System.Net.WebClient
+          $wc.DownloadFile($url, $zip)
+          Write-Output "Extracting..."
+          Expand-Archive -Path $zip -DestinationPath "C:\nsis-extract" -Force
+          $nsisDir = "C:\nsis-extract\nsis-$nsisVer"
+          if (Test-Path "$nsisDir\makensis.exe") {
+            echo $nsisDir >> $env:GITHUB_PATH
+            Write-Output "NSIS ready at $nsisDir"
+          } else {
+            # Might be extracted without version subfolder
+            $found = Get-ChildItem "C:\nsis-extract" -Recurse -Filter "makensis.exe" | Select-Object -First 1
+            echo $found.DirectoryName >> $env:GITHUB_PATH
+            Write-Output "NSIS ready at $($found.DirectoryName)"
           }
-          # Verify
-          $env:PATH = "C:\Program Files (x86)\NSIS;C:\nsis;$env:PATH"
-          makensis /VERSION
 
       - name: Build Windows (exe + installer)
         run: wails build -tags fts5 -platform windows/amd64 -nsis -ldflags "-X main.version=${{ github.ref_name }}"
