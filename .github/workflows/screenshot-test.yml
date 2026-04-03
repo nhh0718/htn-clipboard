@@ -37,29 +37,13 @@ jobs:
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
+      - name: Install Playwright
+        run: npx playwright install chromium
+
       - name: Build macOS app
         run: wails build -tags fts5 -platform darwin/arm64 -ldflags "-X main.version=test"
         env:
           CGO_ENABLED: 1
-
-      - name: Grant macOS permissions
-        run: |
-          # Grant accessibility + screen recording permissions for screencapture
-          # On CI runners, tccutil works without SIP
-          sudo tccutil reset ScreenCapture 2>/dev/null || true
-          sudo tccutil reset Accessibility 2>/dev/null || true
-
-          # Add Terminal and screencapture to allowed apps
-          DB="/Library/Application Support/com.apple.TCC/TCC.db"
-          for app in "/usr/sbin/screencapture" "/usr/bin/osascript" "/bin/bash"; do
-            BUNDLE=$(osascript -e "id of app \"Terminal\"" 2>/dev/null || echo "com.apple.Terminal")
-            sudo sqlite3 "$DB" "INSERT OR REPLACE INTO access (service, client, client_type, auth_value, auth_reason, auth_version) VALUES ('kTCCServiceScreenCapture', '$BUNDLE', 0, 2, 0, 1);" 2>/dev/null || true
-          done
-
-          # Dismiss any pending permission dialogs via AppleScript
-          osascript -e 'tell application "System Events" to click button "Allow" of window 1 of process "UserNotificationCenter"' 2>/dev/null || true
-          osascript -e 'tell application "System Events" to click button "OK" of window 1 of process "UserNotificationCenter"' 2>/dev/null || true
-          echo "Permissions configured"
 
       - name: Launch app and generate sample data
         run: |
@@ -70,26 +54,7 @@ jobs:
           echo "Waiting for app to start..."
           sleep 10
 
-          # Auto-dismiss any macOS permission dialogs
-          osascript <<'APPLESCRIPT'
-            tell application "System Events"
-              try
-                repeat 3 times
-                  click button "OK" of window 1 of process "UserNotificationCenter"
-                  delay 0.5
-                end repeat
-              end try
-              try
-                click button "Allow" of window 1 of process "UserNotificationCenter"
-              end try
-              try
-                click button "Open System Settings" of window 1 of process "UserNotificationCenter"
-              end try
-            end tell
-          APPLESCRIPT
-          sleep 2
-
-          # Copy sample data to clipboard via pbcopy
+          # Copy sample data via pbcopy
           echo "Hello from Clipboard Pro! This is a sample text entry." | pbcopy
           sleep 2
           echo "SELECT * FROM users WHERE active = true ORDER BY created_at DESC;" | pbcopy
@@ -103,43 +68,50 @@ jobs:
           echo "npm install && wails build -tags fts5" | pbcopy
           sleep 3
 
-          echo "6 sample items copied"
+          echo "6 sample items copied, app should have captured them"
 
-      - name: Screenshot app
+      - name: Screenshot web dashboard via Playwright
         run: |
-          # Activate the app window
-          osascript -e 'tell application "Clipboard Pro" to activate' 2>/dev/null || true
-          sleep 2
+          node -e "
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage({ viewport: { width: 420, height: 700 } });
 
-          # Take screenshot (screencapture -x = no sound)
-          screencapture -x screenshots/01-app-with-data.png
-          echo "Captured: app with clipboard data"
+            // Main dashboard (no auth needed for same-origin, but we need token)
+            // First get the auth token from the API
+            let token = '';
+            try {
+              const resp = await page.request.get('http://localhost:27843/api/v1/ping');
+              console.log('Ping:', resp.status());
+            } catch(e) {
+              console.log('Ping failed:', e.message);
+            }
 
-      - name: Screenshot web dashboard
-        run: |
-          # Open dashboard in default browser
-          open "http://localhost:27843"
-          sleep 5
+            // Screenshot 1: Dashboard login/token page
+            await page.goto('http://localhost:27843');
+            await page.waitForTimeout(3000);
+            await page.screenshot({ path: 'screenshots/01-web-dashboard-login.png', fullPage: true });
+            console.log('Captured: web dashboard login');
 
-          # Focus Safari/browser
-          osascript -e 'tell application "Safari" to activate' 2>/dev/null || true
-          sleep 2
+            // Screenshot 2: Try with a wide viewport (like desktop)
+            await page.setViewportSize({ width: 1200, height: 800 });
+            await page.goto('http://localhost:27843');
+            await page.waitForTimeout(3000);
+            await page.screenshot({ path: 'screenshots/02-web-dashboard-wide.png', fullPage: true });
+            console.log('Captured: web dashboard wide');
 
-          screencapture -x screenshots/02-web-dashboard.png
-          echo "Captured: web dashboard"
+            // Screenshot 3: Mobile viewport
+            await page.setViewportSize({ width: 375, height: 812 });
+            await page.goto('http://localhost:27843');
+            await page.waitForTimeout(2000);
+            await page.screenshot({ path: 'screenshots/03-web-mobile.png', fullPage: true });
+            console.log('Captured: web mobile');
 
-      - name: Screenshot app again (switch back)
-        run: |
-          # Focus app again
-          osascript -e 'tell application "Clipboard Pro" to activate' 2>/dev/null || true
-          sleep 2
-
-          screencapture -x screenshots/03-app-final.png
-          echo "Captured: app final state"
-
-          # List all screenshots
-          echo "=== All Screenshots ==="
-          ls -lh screenshots/
+            await browser.close();
+            console.log('All Playwright screenshots done');
+          })().catch(e => { console.error(e); process.exit(1); });
+          "
 
       - name: Upload screenshots
         if: always()
@@ -169,6 +141,9 @@ jobs:
       - name: Install Wails
         run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
+      - name: Install Playwright
+        run: npx playwright install chromium
+
       - name: Build Windows app
         run: wails build -tags fts5 -platform windows/amd64 -ldflags "-X main.version=test"
         env:
@@ -179,23 +154,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path screenshots
 
-          # Screenshot helper
-          Add-Type -AssemblyName System.Windows.Forms
-          Add-Type -AssemblyName System.Drawing
-          function Take-Screenshot($path) {
-            $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-            $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
-            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-            $graphics.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
-            $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
-            $graphics.Dispose()
-            $bitmap.Dispose()
-            Write-Output "Captured: $path"
-          }
-
           # Launch app
           Start-Process -FilePath "build\bin\clipboard-pro.exe"
-          Start-Sleep -Seconds 8
+          Start-Sleep -Seconds 10
 
           # Copy sample data
           "Hello from Clipboard Pro! Sample text entry." | Set-Clipboard
@@ -207,14 +168,39 @@ jobs:
           '{"name": "Clipboard Pro", "version": "2.0.7"}' | Set-Clipboard
           Start-Sleep -Seconds 3
 
-          Take-Screenshot "screenshots\01-app-with-data.png"
+          # Take native screenshot
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+          $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          $graphics.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
+          $bitmap.Save("screenshots\01-windows-app.png", [System.Drawing.Imaging.ImageFormat]::Png)
+          $graphics.Dispose()
+          $bitmap.Dispose()
+          Write-Output "Captured: Windows app"
 
-          # Open web dashboard
-          Start-Process "http://localhost:27843"
-          Start-Sleep -Seconds 5
-          Take-Screenshot "screenshots\02-web-dashboard.png"
+      - name: Screenshot web dashboard via Playwright
+        shell: pwsh
+        run: |
+          node -e "
+          const { chromium } = require('playwright');
+          (async () => {
+            const browser = await chromium.launch();
+            const page = await browser.newPage({ viewport: { width: 420, height: 700 } });
+            await page.goto('http://localhost:27843');
+            await page.waitForTimeout(3000);
+            await page.screenshot({ path: 'screenshots/02-web-dashboard.png', fullPage: true });
+            console.log('Captured: web dashboard');
 
-          Get-ChildItem screenshots\
+            await page.setViewportSize({ width: 1200, height: 800 });
+            await page.goto('http://localhost:27843');
+            await page.waitForTimeout(3000);
+            await page.screenshot({ path: 'screenshots/03-web-dashboard-wide.png', fullPage: true });
+            console.log('Captured: web dashboard wide');
+            await browser.close();
+          })().catch(e => { console.error(e); process.exit(1); });
+          "
 
       - name: Upload screenshots
         if: always()
