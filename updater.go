@@ -3,14 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/pkg/browser"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -146,58 +143,30 @@ func (a *App) checkUpdateBackground() {
 	}
 }
 
-// DownloadAndInstallUpdate downloads the installer from the given URL,
-// saves it to a temp directory, launches it, and quits the app.
+// DownloadAndInstallUpdate opens the installer download URL in the browser,
+// waits a few seconds for the download to start, then quits the app
+// so the installer can replace files.
 func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
 	if downloadURL == "" {
 		return fmt.Errorf("no download URL provided")
 	}
 
-	// Notify frontend: downloading
-	runtime.EventsEmit(a.ctx, "update:downloading", true)
+	fmt.Printf("[updater] opening download URL: %s\n", downloadURL)
 
-	// Download installer to temp directory
-	tmpDir := os.TempDir()
-	installerPath := filepath.Join(tmpDir, "clipboard-pro-update-installer.exe")
-
-	fmt.Printf("[updater] downloading installer from %s\n", downloadURL)
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(downloadURL)
-	if err != nil {
-		runtime.EventsEmit(a.ctx, "update:downloading", false)
-		return fmt.Errorf("download failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		runtime.EventsEmit(a.ctx, "update:downloading", false)
-		return fmt.Errorf("download failed: HTTP %d", resp.StatusCode)
+	// Open download link in default browser
+	if err := browser.OpenURL(downloadURL); err != nil {
+		return fmt.Errorf("open browser: %w", err)
 	}
 
-	outFile, err := os.Create(installerPath)
-	if err != nil {
-		runtime.EventsEmit(a.ctx, "update:downloading", false)
-		return fmt.Errorf("create temp file: %w", err)
-	}
-	defer outFile.Close()
+	// Emit countdown event — frontend shows "Đóng app sau 3s..."
+	runtime.EventsEmit(a.ctx, "update:closing", 3)
 
-	if _, err := io.Copy(outFile, resp.Body); err != nil {
-		runtime.EventsEmit(a.ctx, "update:downloading", false)
-		return fmt.Errorf("write installer: %w", err)
-	}
-	_ = outFile.Close()
+	// Wait for download to start, then quit
+	go func() {
+		time.Sleep(3 * time.Second)
+		fmt.Println("[updater] quitting app for update...")
+		runtime.Quit(a.ctx)
+	}()
 
-	fmt.Printf("[updater] installer saved to %s, launching...\n", installerPath)
-
-	// Launch installer in background (detached from this process)
-	cmd := exec.Command(installerPath)
-	cmd.Dir = tmpDir
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("launch installer: %w", err)
-	}
-
-	// Quit the app so the installer can replace files
-	fmt.Println("[updater] quitting app for update...")
-	runtime.Quit(a.ctx)
 	return nil
 }

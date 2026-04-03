@@ -75,6 +75,7 @@ const translations = {
     update_banner: 'New version available:',
     update_install: 'Update Now',
     update_downloading: 'Downloading…',
+    update_closing: 'Closing app to install update in',
     // Analytics
     tab_history: 'History',
     analytics_title: 'Analytics',
@@ -161,6 +162,7 @@ const translations = {
     update_banner: 'Có phiên bản mới:',
     update_install: 'Cập nhật ngay',
     update_downloading: 'Đang tải…',
+    update_closing: 'Đóng app để cài bản mới sau',
     // Analytics
     tab_history: 'Lịch sử',
     analytics_title: 'Thống kê',

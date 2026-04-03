@@ -261,6 +261,7 @@ function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filte
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [updateDismissed, setUpdateDismissed] = useState(false)
   const [downloading, setDownloading] = useState(false)
+  const [closingIn, setClosingIn] = useState<number | null>(null)
   const isNative = inWails()
 
   // Load initial always-on-top state
@@ -277,9 +278,19 @@ function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filte
     EventsOn('update:downloading', (...args: unknown[]) => {
       setDownloading(args[0] as boolean)
     })
+    EventsOn('update:closing', (...args: unknown[]) => {
+      let seconds = (args[0] as number) || 3
+      setClosingIn(seconds)
+      const interval = setInterval(() => {
+        seconds -= 1
+        setClosingIn(seconds)
+        if (seconds <= 0) clearInterval(interval)
+      }, 1000)
+    })
     return () => {
       EventsOff('update:available')
       EventsOff('update:downloading')
+      EventsOff('update:closing')
     }
   }, [])
 
@@ -309,9 +320,15 @@ function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filte
         <div className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-xs shrink-0">
           <Download size={13} />
           <span className="flex-1">
-            {t('update_banner')} <strong>{updateInfo.latest}</strong>
+            {closingIn !== null ? (
+              <>{t('update_closing')} <strong>{closingIn}s...</strong></>
+            ) : (
+              <>{t('update_banner')} <strong>{updateInfo.latest}</strong></>
+            )}
           </span>
-          {downloading ? (
+          {closingIn !== null ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : downloading ? (
             <span className="flex items-center gap-1 text-[10px] opacity-80">
               <Loader2 size={12} className="animate-spin" /> {t('update_downloading')}
             </span>
@@ -323,12 +340,14 @@ function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filte
               {t('update_install')}
             </button>
           )}
-          <button
-            onClick={() => setUpdateDismissed(true)}
-            className="p-0.5 rounded hover:bg-white/20 transition-colors"
-          >
-            <X size={12} />
-          </button>
+          {closingIn === null && (
+            <button
+              onClick={() => setUpdateDismissed(true)}
+              className="p-0.5 rounded hover:bg-white/20 transition-colors"
+            >
+              <X size={12} />
+            </button>
+          )}
         </div>
       )}
 
