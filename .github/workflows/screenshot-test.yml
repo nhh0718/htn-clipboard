@@ -1,0 +1,149 @@
+name: Screenshot Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "Platform to test"
+        required: true
+        default: "macos"
+        type: choice
+        options:
+          - macos
+          - windows
+          - both
+
+permissions:
+  contents: read
+
+jobs:
+  screenshot-macos:
+    if: inputs.platform == 'macos' || inputs.platform == 'both'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build macOS app
+        run: wails build -tags fts5 -platform darwin/arm64 -ldflags "-X main.version=test"
+        env:
+          CGO_ENABLED: 1
+
+      - name: Launch app and take screenshots
+        run: |
+          mkdir -p screenshots
+
+          # Launch the app in background
+          open build/bin/clipboard-pro.app &
+          echo "Waiting for app to start..."
+          sleep 8
+
+          # Screenshot 1: Main window
+          screencapture -x screenshots/01-main-window.png
+          echo "Captured main window"
+
+          # Screenshot 2: Full desktop
+          screencapture -x -D 1 screenshots/02-full-desktop.png
+          echo "Captured full desktop"
+
+          sleep 2
+
+          # Try to capture the app window specifically
+          # Get window ID of Clipboard Pro
+          WINDOW_ID=$(osascript -e 'tell application "System Events" to get id of first window of (first process whose name contains "clipboard")' 2>/dev/null || echo "")
+          if [ -n "$WINDOW_ID" ]; then
+            screencapture -x -l "$WINDOW_ID" screenshots/03-app-window.png
+            echo "Captured app window by ID"
+          fi
+
+          # Screenshot 3: After a few more seconds (data might load)
+          sleep 3
+          screencapture -x screenshots/04-after-load.png
+          echo "Captured after load"
+
+          echo "All screenshots captured!"
+          ls -la screenshots/
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-macos
+          path: screenshots/
+          retention-days: 7
+
+  screenshot-windows:
+    if: inputs.platform == 'windows' || inputs.platform == 'both'
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Wails
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Build Windows app
+        run: wails build -tags fts5 -platform windows/amd64 -ldflags "-X main.version=test"
+        env:
+          CGO_ENABLED: 1
+
+      - name: Launch app and take screenshots
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path screenshots
+
+          # Launch app in background
+          Start-Process -FilePath "build\bin\clipboard-pro.exe"
+          Write-Output "Waiting for app to start..."
+          Start-Sleep -Seconds 8
+
+          # Take screenshots using PowerShell
+          Add-Type -AssemblyName System.Windows.Forms
+          Add-Type -AssemblyName System.Drawing
+
+          function Take-Screenshot($path) {
+            $screen = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+            $bitmap = New-Object System.Drawing.Bitmap($screen.Width, $screen.Height)
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            $graphics.CopyFromScreen($screen.Location, [System.Drawing.Point]::Empty, $screen.Size)
+            $bitmap.Save($path, [System.Drawing.Imaging.ImageFormat]::Png)
+            $graphics.Dispose()
+            $bitmap.Dispose()
+            Write-Output "Captured: $path"
+          }
+
+          Take-Screenshot "screenshots\01-main-window.png"
+          Start-Sleep -Seconds 3
+          Take-Screenshot "screenshots\02-after-load.png"
+
+          Write-Output "All screenshots captured!"
+          Get-ChildItem screenshots\
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-windows
+          path: screenshots/
+          retention-days: 7
