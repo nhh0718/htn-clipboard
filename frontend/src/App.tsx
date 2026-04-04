@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Settings, Pin, PinOff, BarChart3, ClipboardList as ClipboardIcon, Download, X, Loader2 } from 'lucide-react'
+import { Settings, Pin, PinOff, BarChart3, ClipboardList as ClipboardIcon, Download, X } from 'lucide-react'
 import './App.css'
 import { SearchBar } from './components/SearchBar'
 import { ClipboardList } from './components/ClipboardList'
 import { SettingsPanel } from './components/SettingsPanel'
 import { AnalyticsDashboard } from './components/AnalyticsDashboard'
 import type { ClipboardItem, SearchFilter, UpdateInfo } from './types/clipboard'
-import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff, inWails, SetAlwaysOnTop, IsAlwaysOnTop, DownloadAndInstallUpdate } from './services/wails-bridge'
+import { GetHistory, Search, CopyItem, DeleteItem, TogglePin, EventsOn, EventsOff, inWails, SetAlwaysOnTop, IsAlwaysOnTop, OpenUpdatePage } from './services/wails-bridge'
 import { LangContext, LangSetterContext, useTranslation, type Lang } from './lib/i18n'
 import { ThemeContext, useThemeState } from './lib/theme'
 import { BrowserTokenPrompt } from './components/BrowserTokenPrompt'
@@ -260,9 +260,6 @@ function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filte
   const [pinned, setPinned] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [updateDismissed, setUpdateDismissed] = useState(false)
-  const [updateStage, setUpdateStage] = useState<string | null>(null) // null | 'downloading' | 'installing'
-  const [updatePercent, setUpdatePercent] = useState(0)
-  const [updateError, setUpdateError] = useState<string | null>(null)
   const isNative = inWails()
 
   // Load initial always-on-top state
@@ -276,14 +273,8 @@ function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filte
       setUpdateInfo(args[0] as UpdateInfo)
       setUpdateDismissed(false)
     })
-    EventsOn('update:progress', (...args: unknown[]) => {
-      const data = args[0] as { stage: string; percent: number }
-      setUpdateStage(data.stage)
-      setUpdatePercent(data.percent)
-    })
     return () => {
       EventsOff('update:available')
-      EventsOff('update:progress')
     }
   }, [])
 
@@ -293,18 +284,9 @@ function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filte
     SetAlwaysOnTop(next)
   }
 
-  async function handleInstallUpdate() {
+  function handleOpenUpdate() {
     if (!updateInfo?.downloadURL) return
-    setUpdateStage('downloading')
-    setUpdatePercent(0)
-    setUpdateError(null)
-    try {
-      await DownloadAndInstallUpdate(updateInfo.downloadURL)
-    } catch (err) {
-      console.error('[update] install error:', err)
-      setUpdateError(String(err))
-      setUpdateStage(null)
-    }
+    OpenUpdatePage(updateInfo.downloadURL)
   }
 
   const showUpdateBanner = updateInfo?.available && !updateDismissed
@@ -313,48 +295,23 @@ function AppShell({ activeTab, setActiveTab, items, selectedId, isLoading, filte
     <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
       {/* Update notification banner */}
       {showUpdateBanner && (
-        <div className="shrink-0">
-          <div className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-xs">
-            <Download size={13} />
-            <span className="flex-1">
-              {updateStage === 'installing' ? (
-                <>{t('update_installing')}</>
-              ) : updateStage === 'downloading' ? (
-                <>{t('update_downloading')} <strong>{updatePercent}%</strong></>
-              ) : updateError ? (
-                <span className="text-red-200">{updateError}</span>
-              ) : (
-                <>{t('update_banner')} <strong>{updateInfo.latest}</strong></>
-              )}
-            </span>
-            {updateStage ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : (
-              <>
-                <button
-                  onClick={handleInstallUpdate}
-                  className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 font-medium transition-colors"
-                >
-                  {t('update_install')}
-                </button>
-                <button
-                  onClick={() => setUpdateDismissed(true)}
-                  className="p-0.5 rounded hover:bg-white/20 transition-colors"
-                >
-                  <X size={12} />
-                </button>
-              </>
-            )}
-          </div>
-          {/* Progress bar */}
-          {updateStage === 'downloading' && (
-            <div className="h-0.5 bg-emerald-800">
-              <div
-                className="h-full bg-white transition-all duration-300"
-                style={{ width: `${updatePercent}%` }}
-              />
-            </div>
-          )}
+        <div className="flex items-center gap-2 px-3 py-2 bg-emerald-600 text-white text-xs shrink-0">
+          <Download size={13} />
+          <span className="flex-1">
+            {t('update_banner')} <strong>{updateInfo.latest}</strong>
+          </span>
+          <button
+            onClick={handleOpenUpdate}
+            className="px-2 py-0.5 rounded bg-white/20 hover:bg-white/30 font-medium transition-colors"
+          >
+            {t('download')}
+          </button>
+          <button
+            onClick={() => setUpdateDismissed(true)}
+            className="p-0.5 rounded hover:bg-white/20 transition-colors"
+          >
+            <X size={12} />
+          </button>
         </div>
       )}
 

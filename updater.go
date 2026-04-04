@@ -3,18 +3,15 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/pkg/browser"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // version is set at build time via -ldflags "-X main.version=vX.Y.Z".
-// Defaults to "dev" for local development builds.
 var version = "dev"
 
 const (
@@ -48,8 +45,7 @@ func (a *App) GetVersion() string {
 	return version
 }
 
-// CheckForUpdate queries the GitHub Releases API and compares the latest
-// tag against the compiled-in version.
+// CheckForUpdate queries the GitHub Releases API and compares versions.
 func (a *App) CheckForUpdate() UpdateInfo {
 	result := UpdateInfo{Current: version}
 
@@ -62,13 +58,11 @@ func (a *App) CheckForUpdate() UpdateInfo {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Println("[updater] GitHub API status:", resp.StatusCode)
 		return result
 	}
 
 	var release githubRelease
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		fmt.Println("[updater] decode error:", err)
 		return result
 	}
 
@@ -76,19 +70,11 @@ func (a *App) CheckForUpdate() UpdateInfo {
 	result.ReleaseURL = release.HTMLURL
 	result.ReleaseNote = release.Body
 
-	// Find the Windows installer asset as the primary download link
+	// Find installer download link
 	for _, asset := range release.Assets {
 		if strings.Contains(asset.Name, "installer") {
 			result.DownloadURL = asset.BrowserDownloadURL
 			break
-		}
-	}
-	if result.DownloadURL == "" {
-		for _, asset := range release.Assets {
-			if strings.HasSuffix(asset.Name, ".exe") {
-				result.DownloadURL = asset.BrowserDownloadURL
-				break
-			}
 		}
 	}
 	if result.DownloadURL == "" {
@@ -97,6 +83,15 @@ func (a *App) CheckForUpdate() UpdateInfo {
 
 	result.Available = isNewer(release.TagName, version)
 	return result
+}
+
+// OpenUpdatePage opens the download URL in the default browser.
+// No exe download, no ShellExecute, no privilege escalation.
+func (a *App) OpenUpdatePage(url string) error {
+	if url == "" {
+		return fmt.Errorf("no URL provided")
+	}
+	return browser.OpenURL(url)
 }
 
 // isNewer returns true if latest is a higher semver than current.
@@ -125,8 +120,7 @@ func parseSemver(v string) [3]int {
 	return parts
 }
 
-// checkUpdateBackground runs a silent update check after startup delay
-// and emits a Wails event if a new version is available.
+// checkUpdateBackground runs a silent version check after startup.
 func (a *App) checkUpdateBackground() {
 	time.Sleep(5 * time.Second)
 	info := a.CheckForUpdate()
@@ -134,111 +128,4 @@ func (a *App) checkUpdateBackground() {
 		fmt.Printf("[updater] new version available: %s → %s\n", info.Current, info.Latest)
 		runtime.EventsEmit(a.ctx, "update:available", info)
 	}
-}
-
-// DownloadAndInstallUpdate downloads the installer silently in the background,
-// then runs it with /S (NSIS silent install) flag and quits the app.
-// This mimics how professional apps (VS Code, Discord, Notion) handle updates:
-// background download → silent install → app quits → installer replaces → done.
-func (a *App) DownloadAndInstallUpdate(downloadURL string) error {
-	if downloadURL == "" {
-		return fmt.Errorf("no download URL provided")
-	}
-
-	fmt.Printf("[updater] downloading: %s\n", downloadURL)
-	runtime.EventsEmit(a.ctx, "update:progress", map[string]interface{}{
-		"stage": "downloading", "percent": 0,
-	})
-
-	// GitHub release URLs redirect (302) to CDN — http.Client follows redirects by default.
-	// Use a generous timeout for large files.
-	client := &http.Client{Timeout: 10 * time.Minute}
-	resp, err := client.Get(downloadURL)
-	if err != nil {
-		return fmt.Errorf("download error: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download HTTP %d", resp.StatusCode)
-	}
-
-	// Save to temp directory
-	tmpDir := os.TempDir()
-	installerPath := filepath.Join(tmpDir, "clipboard-pro-installer.exe")
-	outFile, err := os.Create(installerPath)
-	if err != nil {
-		return fmt.Errorf("create file: %w", err)
-	}
-
-	// Track download progress
-	totalSize := resp.ContentLength
-	var downloaded int64
-	buf := make([]byte, 32*1024) // 32KB buffer
-	for {
-		n, readErr := resp.Body.Read(buf)
-		if n > 0 {
-			if _, writeErr := outFile.Write(buf[:n]); writeErr != nil {
-				outFile.Close()
-				return fmt.Errorf("write file: %w", writeErr)
-			}
-			downloaded += int64(n)
-			if totalSize > 0 {
-				pct := int(float64(downloaded) / float64(totalSize) * 100)
-				runtime.EventsEmit(a.ctx, "update:progress", map[string]interface{}{
-					"stage": "downloading", "percent": pct,
-				})
-			}
-		}
-		if readErr == io.EOF {
-			break
-		}
-		if readErr != nil {
-			outFile.Close()
-			return fmt.Errorf("read body: %w", readErr)
-		}
-	}
-	outFile.Close()
-
-	fmt.Printf("[updater] downloaded %d bytes → %s\n", downloaded, installerPath)
-
-	// Verify it's a real PE executable (MZ magic bytes)
-	f, err := os.Open(installerPath)
-	if err != nil {
-		return fmt.Errorf("verify open: %w", err)
-	}
-	magic := make([]byte, 2)
-	f.Read(magic)
-	f.Close()
-	if string(magic) != "MZ" {
-		return fmt.Errorf("downloaded file is not a valid Windows executable")
-	}
-
-	// Emit "installing" stage
-	runtime.EventsEmit(a.ctx, "update:progress", map[string]interface{}{
-		"stage": "installing", "percent": 100,
-	})
-
-	fmt.Printf("[updater] installer size: %d bytes, path: %s\n", downloaded, installerPath)
-	fmt.Println("[updater] launching installer with elevation (GUI mode)...")
-
-	// Launch installer WITH GUI (not silent) so user can see progress.
-	// The installer will:
-	//   1. Show install wizard (user clicks through or it auto-progresses)
-	//   2. taskkill old app process
-	//   3. Install new files to Program Files
-	//   4. Create shortcuts, update registry
-	//   5. Offer to launch the app on finish page
-	if err := shellExecuteRunAs(installerPath, ""); err != nil {
-		return fmt.Errorf("launch installer: %w", err)
-	}
-
-	// Quit the app so installer can replace the exe
-	go func() {
-		time.Sleep(2 * time.Second)
-		fmt.Println("[updater] quitting for installer...")
-		runtime.Quit(a.ctx)
-	}()
-
-	return nil
 }
